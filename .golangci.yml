@@ -1,0 +1,157 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - govet
+    - ineffassign
+    - intrange
+    - makezero
+    - mirror
+    - misspell
+    - modernize
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnesserr
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - reassign
+    - recvcheck
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wsl_v5
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    gocyclo:
+      min-complexity: 15
+
+    gocognit:
+      min-complexity: 30
+
+    funlen:
+      lines: 200
+      statements: 100
+      ignore-comments: true
+
+    goconst:
+      min-len: 3
+      min-occurrences: 12
+
+    nestif:
+      min-complexity: 5
+
+    misspell:
+      locale: US
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: exported
+          disabled: true
+        - name: if-return
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+          disabled: true
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: unreachable-code
+
+    gocritic:
+      enabled-checks:
+        - appendCombine
+        - boolExprSimplify
+        - equalFold
+        - indexAlloc
+        - nilValReturn
+        - rangeExprCopy
+        - rangeValCopy
+        - sloppyReassign
+        - weakCond
+        - yodaStyleExpr
+
+    exhaustive:
+      default-signifies-exhaustive: false
+
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+
+    nakedret:
+      max-func-lines: 30
+
+  exclusions:
+    rules:
+    - linters:
+        - gocritic
+      text: "dupBranchBody"
+
+    - linters:
+        - staticcheck
+      text: "SA4009"
+
+    - path: cmd/
+      linters:
+        - gochecknoglobals
+
+    - path: _test\.go
+      linters:
+        - errcheck
+        - goconst
+        - funlen
+        - typecheck
+        - forcetypeassert
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  formats:
+    text:
+      colors: true
+      path: stdout
+      print-issued-lines: true
+      print-linter-name: true
