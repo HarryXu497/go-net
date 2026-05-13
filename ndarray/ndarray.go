@@ -70,10 +70,12 @@ func NewNDArray(shape ...int) *NDArray {
 	shape = slices.Clone(shape)
 
 	size := 1
+
 	for i, dimension := range shape {
 		if dimension < 0 {
 			panic(fmt.Sprintf("ndarray: shape dimension on axis %d must be non-negative, got %d", i, dimension))
 		}
+
 		size *= dimension
 	}
 
@@ -96,17 +98,10 @@ func NewNDArray(shape ...int) *NDArray {
 func (a *NDArray) Copy() *NDArray {
 	result := NewNDArray(a.shape...)
 
-	indices := make([]int, len(a.shape))
-	for i := 0; i < a.Size(); i++ {
-		result.Set(indices, a.Get(indices))
-
-		for k := len(indices) - 1; k >= 0; k-- {
-			indices[k]++
-			if indices[k] < a.shape[k] {
-				break
-			}
-			indices[k] = 0
-		}
+	i := 0
+	for _, off := range a.indicesAndOffsets() {
+		result.data[i] = a.data[off]
+		i++
 	}
 
 	return result
@@ -159,4 +154,32 @@ func (a *NDArray) Strides() []int {
 // can return a zero-copy view or must materialize a fresh contiguous buffer.
 func (a *NDArray) IsContiguous() bool {
 	return slices.Equal(a.strides, rowMajorStrides(a.shape))
+}
+
+// FromSlice wraps an existing flat float64 buffer as a row-major NDArray of
+// the given shape. The returned NDArray aliases data (no copy is made).
+// Subsequent mutations to data are visible through the NDArray and vice
+// versa; call Copy on the result if you need an independent buffer.
+func FromSlice(data []float64, shape ...int) *NDArray {
+	shape = slices.Clone(shape)
+
+	size := 1
+
+	for i, dimension := range shape {
+		if dimension < 0 {
+			panic(fmt.Sprintf("ndarray: shape dimension on axis %d must be non-negative, got %d", i, dimension))
+		}
+
+		size *= dimension
+	}
+
+	if len(data) != size {
+		panic(fmt.Sprintf("ndarray: length of data slice must be %d, got %d", size, len(data)))
+	}
+
+	return &NDArray{
+		data:    data,
+		shape:   shape,
+		strides: rowMajorStrides(shape),
+	}
 }
