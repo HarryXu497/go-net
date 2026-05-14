@@ -54,6 +54,23 @@ func rowMajorStrides(shape []int) []int {
 	return strides
 }
 
+// shapeSize returns the total number of elements in a tensor of the given
+// shape (the product of its dimensions; 1 for an empty shape). It panics if
+// any dimension is negative.
+func shapeSize(shape ...int) int {
+	size := 1
+
+	for i, dimension := range shape {
+		if dimension < 0 {
+			panic(fmt.Sprintf("ndarray: shape dimension on axis %d must be non-negative, got %d", i, dimension))
+		}
+
+		size *= dimension
+	}
+
+	return size
+}
+
 // NewNDArray allocates a fresh, zero-initialized NDArray of the given shape
 // with a row-major interpretation (strides = rowMajorStrides(shape),
 // offset = 0). The returned view is contiguous.
@@ -69,16 +86,7 @@ func rowMajorStrides(shape []int) []int {
 func NewNDArray(shape ...int) *NDArray {
 	shape = slices.Clone(shape)
 
-	size := 1
-
-	for i, dimension := range shape {
-		if dimension < 0 {
-			panic(fmt.Sprintf("ndarray: shape dimension on axis %d must be non-negative, got %d", i, dimension))
-		}
-
-		size *= dimension
-	}
-
+	size := shapeSize(shape...)
 	strides := rowMajorStrides(shape)
 
 	return &NDArray{
@@ -163,15 +171,7 @@ func (a *NDArray) IsContiguous() bool {
 func FromSlice(data []float64, shape ...int) *NDArray {
 	shape = slices.Clone(shape)
 
-	size := 1
-
-	for i, dimension := range shape {
-		if dimension < 0 {
-			panic(fmt.Sprintf("ndarray: shape dimension on axis %d must be non-negative, got %d", i, dimension))
-		}
-
-		size *= dimension
-	}
+	size := shapeSize(shape...)
 
 	if len(data) != size {
 		panic(fmt.Sprintf("ndarray: length of data slice must be %d, got %d", size, len(data)))
