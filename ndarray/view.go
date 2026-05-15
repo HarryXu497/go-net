@@ -102,6 +102,60 @@ func (a *NDArray) Transpose(perm ...int) *NDArray {
 	}
 }
 
+// broadcastShape returns the output shape produced by combining shape1 and
+// shape2 elementwise under numpy's broadcasting rules.
+//
+// The two shapes are right-aligned and the shorter one is conceptually padded
+// with size-1 axes on the left until the ranks match. Then for each axis k:
+//
+//   - if shape1[k] == shape2[k], the output size is that shared value;
+//   - if one side is 1, the output size is the other (the size-1 side would
+//     be stretched when materialized via BroadcastTo);
+//   - otherwise the shapes are incompatible and broadcastShape panics.
+//
+// The result has rank max(len(shape1), len(shape2)). The order of the inputs
+// does not matter: broadcastShape is symmetric.
+//
+// Examples:
+//
+//	broadcastShape([2 3],   [2 3])    → [2 3]    // identity
+//	broadcastShape([10],    [32 10])  → [32 10]  // bias case: shape1 padded to (1,10), stretched on axis 0
+//	broadcastShape([32 1],  [32 10])  → [32 10]  // rowMax case: stretched on axis 1
+//	broadcastShape([5 1 3], [4 3])    → [5 4 3]  // shape2 padded to (1,4,3); both sides contribute stretches
+//	broadcastShape([],      [2 3])    → [2 3]    // scalar broadcasts against any shape
+//	broadcastShape([3],     [4])      → panic    // 3 vs 4, neither is 1
+func broadcastShape(shape1, shape2 []int) []int {
+	dim := max(len(shape1), len(shape2))
+	out := make([]int, dim)
+
+	for i := range dim {
+		a, b := 1, 1
+
+		if i < len(shape1) {
+			a = shape1[len(shape1)-i-1]
+		}
+
+		if i < len(shape2) {
+			b = shape2[len(shape2)-i-1]
+		}
+
+		axis := dim - i - 1
+
+		switch {
+		case a == b:
+			out[axis] = a
+		case a == 1:
+			out[axis] = b
+		case b == 1:
+			out[axis] = a
+		default:
+			panic(fmt.Sprintf("ndarray: cannot broadcast shapes %v and %v (axis %d: %d vs %d)", shape1, shape2, axis, a, b))
+		}
+	}
+
+	return out
+}
+
 // BroadcastTo returns a view of the receiver expanded to the given target
 // shape. The returned view aliases a's underlying buffer; no data is copied.
 //

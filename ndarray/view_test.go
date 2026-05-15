@@ -2,6 +2,7 @@ package ndarray
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -313,6 +314,127 @@ func TestTransposePanicsOnDuplicateAxis(t *testing.T) {
 	a := NewNDArray(2, 3)
 
 	assertPanics(t, func() { a.Transpose(0, 0) })
+}
+
+func TestBroadcastShapeIdentity(t *testing.T) {
+	got := broadcastShape([]int{2, 3}, []int{2, 3})
+
+	if !slices.Equal(got, []int{2, 3}) {
+		t.Errorf("got %v, want [2 3]", got)
+	}
+}
+
+func TestBroadcastShapeTwoScalars(t *testing.T) {
+	// Two rank-0 shapes broadcast to rank 0.
+	got := broadcastShape([]int{}, []int{})
+
+	if !slices.Equal(got, []int{}) {
+		t.Errorf("got %v, want []", got)
+	}
+}
+
+func TestBroadcastShapeScalarAgainstShape(t *testing.T) {
+	// A rank-0 shape broadcasts against any shape.
+	got := broadcastShape([]int{}, []int{2, 3})
+
+	if !slices.Equal(got, []int{2, 3}) {
+		t.Errorf("got %v, want [2 3]", got)
+	}
+}
+
+func TestBroadcastShapeRankPadding(t *testing.T) {
+	// Bias case: (10,) right-aligned against (32, 10) is padded to (1, 10),
+	// then axis 0 stretches from 1 to 32.
+	got := broadcastShape([]int{10}, []int{32, 10})
+
+	if !slices.Equal(got, []int{32, 10}) {
+		t.Errorf("got %v, want [32 10]", got)
+	}
+}
+
+func TestBroadcastShapeMiddleStretch(t *testing.T) {
+	// rowMax case: (32, 1) stretches across axis 1 to match (32, 10).
+	got := broadcastShape([]int{32, 1}, []int{32, 10})
+
+	if !slices.Equal(got, []int{32, 10}) {
+		t.Errorf("got %v, want [32 10]", got)
+	}
+}
+
+func TestBroadcastShapeBothSidesContribute(t *testing.T) {
+	// (5, 1, 3) and (4, 3) → shape2 padded to (1, 4, 3). axis 0 comes from
+	// shape1 (5), axis 1 from shape2 (4), axis 2 is shared (3).
+	got := broadcastShape([]int{5, 1, 3}, []int{4, 3})
+
+	if !slices.Equal(got, []int{5, 4, 3}) {
+		t.Errorf("got %v, want [5 4 3]", got)
+	}
+}
+
+func TestBroadcastShapeOnesEverywhere(t *testing.T) {
+	got := broadcastShape([]int{1, 1, 1}, []int{2, 3, 4})
+
+	if !slices.Equal(got, []int{2, 3, 4}) {
+		t.Errorf("got %v, want [2 3 4]", got)
+	}
+}
+
+func TestBroadcastShapeSymmetric(t *testing.T) {
+	// Swapping the arguments must always produce the same output shape.
+	cases := []struct {
+		a, b []int
+	}{
+		{[]int{10}, []int{32, 10}},
+		{[]int{32, 1}, []int{32, 10}},
+		{[]int{5, 1, 3}, []int{4, 3}},
+		{[]int{1, 1, 1}, []int{2, 3, 4}},
+		{[]int{}, []int{2, 3}},
+	}
+
+	for _, c := range cases {
+		ab := broadcastShape(c.a, c.b)
+		ba := broadcastShape(c.b, c.a)
+
+		if !slices.Equal(ab, ba) {
+			t.Errorf("broadcastShape(%v, %v) = %v but broadcastShape(%v, %v) = %v",
+				c.a, c.b, ab, c.b, c.a, ba)
+		}
+	}
+}
+
+func TestBroadcastShapePanicsOnIncompatibleLastAxis(t *testing.T) {
+	assertPanics(t, func() { broadcastShape([]int{3}, []int{4}) })
+}
+
+func TestBroadcastShapePanicsOnIncompatibleMiddleAxis(t *testing.T) {
+	// Failure on axis 1: 3 vs 5, neither is 1.
+	assertPanics(t, func() { broadcastShape([]int{2, 3, 4}, []int{2, 5, 4}) })
+}
+
+func TestBroadcastShapePanicMessage(t *testing.T) {
+	// The panic message should name the failing axis (1) and include both
+	// input shapes, so the caller can see what was being combined.
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic, got none")
+		}
+
+		msg, ok := r.(string)
+		if !ok {
+			t.Fatalf("panic value not a string: %T %v", r, r)
+		}
+
+		if !strings.Contains(msg, "axis 1") {
+			t.Errorf("panic message %q should mention axis 1", msg)
+		}
+
+		if !strings.Contains(msg, "[2 3 4]") || !strings.Contains(msg, "[2 5 4]") {
+			t.Errorf("panic message %q should include both shapes", msg)
+		}
+	}()
+
+	broadcastShape([]int{2, 3, 4}, []int{2, 5, 4})
 }
 
 func TestBroadcastToStretchSize1Axis(t *testing.T) {
