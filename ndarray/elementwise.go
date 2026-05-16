@@ -56,6 +56,22 @@ func (a *NDArray) ReLU() *NDArray {
 	return a.unaryOp(func(x float64) float64 { return max(x, 0) })
 }
 
+// IndicatorPositive returns a fresh contiguous tensor whose elements
+// are 1.0 where the corresponding element of a is strictly greater
+// than 0, and 0.0 otherwise. The receiver is unchanged.
+//
+// This is the elementwise derivative of ReLU and is intended as the
+// mask factor in ReLU's backward pass. The value at 0 is taken to be
+// 0, matching PyTorch's convention for the ReLU subgradient.
+func (a *NDArray) IndicatorPositive() *NDArray {
+	return a.unaryOp(func(x float64) float64 {
+		if x > 0 {
+			return 1
+		}
+		return 0
+	})
+}
+
 // binaryOp applies op elementwise to a and b under numpy's broadcasting
 // rules and returns a fresh contiguous tensor with the result.
 //
@@ -88,6 +104,31 @@ func (a *NDArray) binaryOp(b *NDArray, op func(float64, float64) float64) *NDArr
 	return out
 }
 
+// binaryOpInPlace applies op elementwise and writes the result back into
+// a in place: a[i] = op(a[i], b[i]). No allocation is performed and the
+// receiver's shape is unchanged.
+//
+// b is broadcast up to a.shape. in particular b cannot be
+// strictly larger than a on any axis, since the result must fit into a.
+// Panics if the shapes are incompatible.
+//
+// Aliasing: callers must not pass a b that aliases a's backing buffer
+// in a different iteration order (e.g. a transposed view of a). The
+// loop reads from b after writing to a, so reordered aliases produce
+// undefined results. b == a is safe because both iterators advance
+// through the buffer in the same order.
+func (a *NDArray) binaryOpInPlace(b *NDArray, op func(float64, float64) float64) {
+	bView := b.BroadcastTo(a.shape...)
+
+	bPull, bStop := iter.Pull2(bView.indicesAndOffsets())
+	defer bStop()
+
+	for _, aOff := range a.indicesAndOffsets() {
+		_, bOff, _ := bPull()
+		a.data[aOff] = op(a.data[aOff], bView.data[bOff])
+	}
+}
+
 // Add returns a fresh contiguous tensor whose elements are a + b, combined
 // under numpy's broadcasting rules. The receivers are unchanged. Add
 // panics if a.shape and b.shape are not broadcast-compatible.
@@ -98,6 +139,18 @@ func (a *NDArray) binaryOp(b *NDArray, op func(float64, float64) float64) *NDArr
 //	logits.Add(bias)   // (batch, 10) + (10,) — bias stretches across the batch axis
 func (a *NDArray) Add(b *NDArray) *NDArray {
 	return a.binaryOp(b, func(x, y float64) float64 { return x + y })
+}
+
+// AddInPlace adds b into a in place: a = a + b. The receiver is
+// modified and no allocation is performed.
+//
+// b is broadcast up to a.shape. AddInPlace panics if b cannot be broadcast
+// to a.shape; in particular if b is strictly larger than a on any axis.
+//
+// Callers must not pass a b that aliases a's backing buffer in a
+// different iteration order; b == a is the only safe self-aliasing case.
+func (a *NDArray) AddInPlace(b *NDArray) {
+	a.binaryOpInPlace(b, func(x, y float64) float64 { return x + y })
 }
 
 // Sub returns a fresh contiguous tensor whose elements are a - b, combined
@@ -130,4 +183,45 @@ func (a *NDArray) Mul(b *NDArray) *NDArray {
 // behavior should guard their inputs.
 func (a *NDArray) Div(b *NDArray) *NDArray {
 	return a.binaryOp(b, func(x, y float64) float64 { return x / y })
+}
+
+// Fill sets every element of a's view to a scalar value, in place. The receiver is
+// modified and no allocation is performed.
+//
+// Because views share their backing data, this also affects
+// every other view of the same tensor.
+func (a *NDArray) Fill(value float64) {
+	if a.IsContiguous() && a.offset == 0 && len(a.data) == a.Size() {
+		for i := range a.data {
+			a.data[i] = value
+		}
+		return
+	}
+	for _, offset := range a.indicesAndOffsets() {
+		a.data[offset] = value
+	}
+}
+
+// Zero sets every element of a's view to 0, in place. The receiver is
+// modified and no allocation is performed.
+//
+// Because views share their backing data, zeroing a view also zeros
+// every other view of the same tensor. Zeroing a broadcast view
+// (which has stride 0 on stretched axes) zeros the underlying
+// unbroadcast data, which is rarely what the caller wants.
+func (a *NDArray) Zero() {
+	a.Fill(0)
+}
+
+// Scale returns a fresh contiguous tensor whose elements are c * a's
+// elements. The receiver is unchanged.
+//
+// This is the scalar-broadcast form of Mul: c is a plain float64, so
+// no 1-element ndarray needs to be allocated to carry it. Useful for
+// gradient scaling (e.g. dividing by N in a Mean reduction) and for
+// SGD parameter updates.
+//
+// Special values follow IEEE 754: 0 * ±Inf = NaN, c * NaN = NaN.
+func (a *NDArray) Scale(c float64) *NDArray {
+	return a.unaryOp(func(x float64) float64 { return c * x })
 }

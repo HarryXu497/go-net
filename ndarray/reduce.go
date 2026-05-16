@@ -12,8 +12,7 @@ import (
 // axes selects which axes of a to reduce. The result's shape is formed
 // from a.shape by either dropping the listed axes (keepDims=false) or
 // replacing each with size 1 (keepDims=true). Passing an empty axes
-// slice reduces over no axes; the result is a copy of a with
-// init folded against every element via fn.
+// slice reduces over all axes.
 //
 // fn is invoked exactly a.Size() times in shape order with the running
 // accumulator and the next input value.
@@ -21,6 +20,13 @@ import (
 // Reduce panics if any axis is out of range [0, a.Ndim()) or appears
 // more than once.
 func (a *NDArray) Reduce(axes []int, keepDims bool, init float64, fn func(float64, float64) float64) *NDArray {
+	if axes == nil {
+		axes = make([]int, a.Ndim())
+		for i := range axes {
+			axes[i] = i
+		}
+	} 
+
 	seen := make([]bool, a.Ndim())
 	for _, axis := range axes {
 		if axis < 0 || axis >= a.Ndim() {
@@ -88,7 +94,7 @@ func (a *NDArray) Reduce(axes []int, keepDims bool, init float64, fn func(float6
 //
 // axes selects which axes to collapse. keepDims controls whether the
 // collapsed axes are dropped (false) or kept as size 1 (true). Passing
-// an empty axes slice returns a copy of a (no axes reduced).
+// an empty axes slice sums over all axes of a.
 //
 // Sum panics if any axis is out of range or duplicated.
 func (a *NDArray) Sum(axes []int, keepDims bool) *NDArray {
@@ -101,7 +107,7 @@ func (a *NDArray) Sum(axes []int, keepDims bool) *NDArray {
 //
 // axes selects which axes to collapse. keepDims controls whether the
 // collapsed axes are dropped (false) or kept as size 1 (true). Passing
-// an empty axes slice returns a copy of a (no axes reduced).
+// an empty axes slice takes the max over all axes of a.
 //
 // Max panics if any axis is out of range, duplicated, or refers to a
 // reduced axis of size 0 (no elements to compare). The empty-axis check
@@ -122,7 +128,7 @@ func (a *NDArray) Max(axes []int, keepDims bool) *NDArray {
 //
 // axes selects which axes to collapse. keepDims controls whether the
 // collapsed axes are dropped (false) or kept as size 1 (true). Passing
-// an empty axes slice returns a copy of a (no axes reduced).
+// an empty axes computes the mean over all axes of a.
 //
 // Mean is implemented as Sum divided by the product of the reduced
 // axes' sizes. If a reduced axis has size 0 the divisor is 0 and the
@@ -131,6 +137,13 @@ func (a *NDArray) Max(axes []int, keepDims bool) *NDArray {
 //
 // Mean panics if any axis is out of range or duplicated.
 func (a *NDArray) Mean(axes []int, keepDims bool) *NDArray {
+	if axes == nil {
+		axes = make([]int, a.Ndim())
+		for i := range axes {
+			axes[i] = i
+		}
+	}
+
 	summed := a.Sum(axes, keepDims)
 
 	count := 1
