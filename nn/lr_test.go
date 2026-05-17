@@ -19,6 +19,7 @@ func TestConstantLR(t *testing.T) {
 // TestExpDecayLR: lr(0) = Initial, lr(n) = Initial * DecayRate^n.
 func TestExpDecayLR(t *testing.T) {
 	e := ExpDecayLR{Initial: 1.0, DecayRate: 0.9}
+
 	cases := []struct {
 		step int
 		want float64
@@ -40,13 +41,14 @@ func TestExpDecayLR(t *testing.T) {
 // stays at Initial; at DecayEvery it drops by DecayFactor; etc.
 func TestStepDecayLR(t *testing.T) {
 	s := StepDecayLR{Initial: 1.0, DecayFactor: 0.5, DecayEvery: 10}
+
 	cases := []struct {
 		step int
 		want float64
 	}{
 		{0, 1.0},
-		{9, 1.0},   // still in the first bucket
-		{10, 0.5},  // first drop
+		{9, 1.0},  // still in the first bucket
+		{10, 0.5}, // first drop
 		{19, 0.5},
 		{20, 0.25}, // second drop
 	}

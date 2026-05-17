@@ -20,7 +20,9 @@ func TestReLUForward(t *testing.T) {
 	if !slices.Equal(y.Shape(), []int{5}) {
 		t.Errorf("output shape = %v, want [5]", y.Shape())
 	}
+
 	got := slices.Collect(y.Data().All())
+
 	want := []float64{0, 0, 0, 0.5, 2}
 	if !slices.Equal(got, want) {
 		t.Errorf("output = %v, want %v", got, want)
@@ -49,7 +51,9 @@ func TestReLUBackwardPopulatesGrad(t *testing.T) {
 	if x.Grad() == nil {
 		t.Fatalf("x.Grad() is nil after Backward")
 	}
+
 	got := slices.Collect(x.Grad().All())
+
 	want := []float64{0, 0, 1, 1}
 	if !slices.Equal(got, want) {
 		t.Errorf("x.Grad() = %v, want %v", got, want)

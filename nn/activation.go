@@ -12,7 +12,7 @@ func (r *ReLU) Forward(x *tensor.Tensor) *tensor.Tensor {
 }
 
 // Parameters returns an empty slice since ReLU has no
-// trainable parameters
+// trainable parameters.
 func (r *ReLU) Parameters() []*tensor.Tensor {
 	return nil
 }

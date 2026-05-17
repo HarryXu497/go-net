@@ -46,7 +46,11 @@ func SoftmaxCrossEntropy(logits *Tensor, targets []int) *Tensor {
 
 	totalLoss := 0.0
 
-	for i := range targets {
+	for i, target := range targets {
+		if target < 0 || target >= logits.Shape()[1] {
+			panic(fmt.Sprintf("tensor: targets[%d] must be in [0, %d), got %d", i, logits.Shape()[1], target))
+		}
+
 		totalLoss += -logSoftmax.Get([]int{i, targets[i]})
 	}
 

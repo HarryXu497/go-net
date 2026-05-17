@@ -17,8 +17,8 @@ import "harryxu.ca/goml/tensor"
 // the computation graph and is safe to call between Backward and the
 // next forward pass.
 type SGD struct {
-	params   []*tensor.Tensor
 	schedule LRSchedule
+	params   []*tensor.Tensor
 	step     int
 }
 
@@ -43,12 +43,14 @@ func NewSGD(params []*tensor.Tensor, schedule LRSchedule) *SGD {
 // This keeps frozen branches and modules-not-used-this-step harmless.
 func (s *SGD) Step() {
 	lr := s.schedule.LR(s.step)
+
 	s.step++
 	for _, p := range s.params {
 		grad := p.Grad()
 		if grad == nil {
 			continue
 		}
+
 		p.Data().AxpyInPlace(-lr, grad)
 	}
 }

@@ -20,6 +20,7 @@ func TestSGDStepUpdatesParameters(t *testing.T) {
 	optim.Step()
 
 	got := slices.Collect(p.Data().All())
+
 	want := []float64{5, 10, 15, 20} // 10 - 0.5*10, 20 - 0.5*20, ...
 	if !slices.Equal(got, want) {
 		t.Errorf("after Step: got %v, want %v", got, want)
@@ -36,6 +37,7 @@ func TestSGDStepSkipsNilGrad(t *testing.T) {
 	optim.Step()
 
 	got := slices.Collect(p.Data().All())
+
 	want := []float64{1, 2, 3}
 	if !slices.Equal(got, want) {
 		t.Errorf("param with nil grad must be unchanged: got %v, want %v", got, want)
@@ -65,6 +67,7 @@ func TestSGDUsesScheduleStep(t *testing.T) {
 	optim.Step()
 
 	got := slices.Collect(p.Data().All())
+
 	want := []float64{-3, -3} // 0 - (0+1+2)*1
 	if !slices.Equal(got, want) {
 		t.Errorf("after 3 Steps with LR(step)=step: got %v, want %v", got, want)
@@ -85,6 +88,7 @@ func TestSGDZeroGrad(t *testing.T) {
 	if p.Grad() != gradPtr {
 		t.Errorf("ZeroGrad must zero the existing grad buffer, not reallocate")
 	}
+
 	for i, v := range slices.Collect(p.Grad().All()) {
 		if v != 0 {
 			t.Errorf("grad[%d] = %v after ZeroGrad, want 0", i, v)

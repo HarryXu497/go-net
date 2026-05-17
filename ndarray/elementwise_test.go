@@ -810,6 +810,7 @@ func TestAxpyInPlaceUpdatesElements(t *testing.T) {
 	a.AxpyInPlace(-0.1, x)
 
 	got := allValues(a)
+
 	want := []float64{0, 0, 0, 0}
 	if !floatsClose(got, want, 1e-12) {
 		t.Errorf("AxpyInPlace(-0.1, x): got %v, want %v", got, want)
@@ -825,6 +826,7 @@ func TestAxpyInPlacePanicsOnShapeMismatch(t *testing.T) {
 			t.Errorf("expected panic on shape mismatch, got nil")
 		}
 	}()
+
 	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
 	x := FromSlice([]float64{1, 2, 3}, 3)
 	a.AxpyInPlace(1.0, x)

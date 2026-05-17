@@ -15,6 +15,7 @@ func TestCrossEntropyLossKnownValue(t *testing.T) {
 	loss := CrossEntropyLoss(logits, []int{0})
 
 	got := loss.Data().Get([]int{0})
+
 	want := math.Log(2)
 	if math.Abs(got-want) > 1e-12 {
 		t.Errorf("loss = %v, want log(2) = %v (|diff| = %g)", got, want, math.Abs(got-want))
@@ -35,6 +36,7 @@ func TestCrossEntropyLossBackward(t *testing.T) {
 	if logits.Grad() == nil {
 		t.Fatalf("logits.Grad() is nil after Backward")
 	}
+
 	if got, want := logits.Grad().Shape(), []int{2, 3}; got[0] != want[0] || got[1] != want[1] {
 		t.Errorf("logits.Grad() shape = %v, want %v", got, want)
 	}

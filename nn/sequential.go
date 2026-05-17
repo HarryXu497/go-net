@@ -26,6 +26,7 @@ func (s *Sequential) Forward(x *tensor.Tensor) *tensor.Tensor {
 	for _, module := range s.modules {
 		current = module.Forward(current)
 	}
+
 	return current
 }
 
@@ -38,5 +39,6 @@ func (s *Sequential) Parameters() []*tensor.Tensor {
 	for _, module := range s.modules {
 		allParameters = append(allParameters, module.Parameters()...)
 	}
+
 	return allParameters
 }

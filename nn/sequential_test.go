@@ -36,6 +36,7 @@ func TestSequentialForwardShape(t *testing.T) {
 	)
 
 	const batch = 4
+
 	x := tensor.NewTensor(ndarray.NewNDArray(batch, 784))
 
 	y := s.Forward(x)
@@ -59,6 +60,7 @@ func TestSequentialParameters(t *testing.T) {
 	if len(got) != len(want) {
 		t.Fatalf("Parameters() length = %d, want %d", len(got), len(want))
 	}
+
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("Parameters()[%d] pointer mismatch", i)
@@ -98,6 +100,7 @@ func TestSequentialBackward(t *testing.T) {
 			t.Errorf("%s.Grad() is nil after Backward", c.name)
 			continue
 		}
+
 		if !slices.Equal(c.t.Grad().Shape(), c.want) {
 			t.Errorf("%s.Grad() shape = %v, want %v", c.name, c.t.Grad().Shape(), c.want)
 		}
