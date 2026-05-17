@@ -1,5 +1,7 @@
 package tensor
 
+import "harryxu.ca/gonet/ndarray"
+
 // Add returns elementwise a + b under numpy broadcasting rules. If either
 // operand requires grad, the result requires grad and the backward closure
 // un-broadcasts the upstream gradient back to each operand's original
@@ -174,6 +176,36 @@ func ReLU(t *Tensor) *Tensor {
 		out.parents = []*Tensor{t}
 		out.backward = func() {
 			t.accumulateGrad(out.grad.Mul(t.data.IndicatorPositive()))
+		}
+	}
+
+	return out
+}
+
+func Tanh(t *Tensor) *Tensor {
+	out := NewTensor(t.data.Tanh())
+	if t.requiresGrad {
+		out.requiresGrad = true
+		out.parents = []*Tensor{t}
+		// Create single element tensor; broadcasting handles shape mismatches
+		onesTensor := ndarray.FromSlice([]float64{1}, 1)
+		out.backward = func() {
+			t.accumulateGrad(out.grad.Mul(onesTensor.Sub(out.data.Mul(out.data))))
+		}
+	}
+
+	return out
+}
+
+func Sigmoid(t *Tensor) *Tensor {
+	out := NewTensor(t.data.Sigmoid())
+	if t.requiresGrad {
+		out.requiresGrad = true
+		out.parents = []*Tensor{t}
+		// Create single element tensor; broadcasting handles shape mismatches
+		onesTensor := ndarray.FromSlice([]float64{1}, 1)
+		out.backward = func() {
+			t.accumulateGrad(out.grad.Mul(out.data.Mul(onesTensor.Sub(out.data))))
 		}
 	}
 

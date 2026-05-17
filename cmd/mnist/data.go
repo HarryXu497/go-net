@@ -17,12 +17,16 @@ const (
 // LoadImages loads the MNIST image data file. This file consists of a
 // fixed-size metadata header followed by the raw byte data for the images.
 // Returns the flat normalized image data and the number of images.
-func LoadImages(path string) ([]float64, int, error) {
+func LoadImages(path string) (out []float64, n int, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	var h struct{ Magic, N, Rows, Cols uint32 }
 	if err := binary.Read(f, binary.BigEndian, &h); err != nil {
@@ -34,28 +38,34 @@ func LoadImages(path string) ([]float64, int, error) {
 	}
 
 	px := int(h.Rows * h.Cols)
+
 	rawData := make([]byte, int(h.N)*px)
 	if _, err := io.ReadFull(f, rawData); err != nil {
 		return nil, 0, err
 	}
 
-	out := make([]float64, len(rawData))
+	out = make([]float64, len(rawData))
 	for i, b := range rawData {
 		// normalize data
 		out[i] = float64(b) / 255.0
 	}
+
 	return out, int(h.N), nil
 }
 
 // LoadLabels loads the MNIST label data file. This file consists of a
 // fixed-size metadata header followed by the raw byte data for each
 // class label. Returns the flat class labels.
-func LoadLabels(path string) ([]int, error) {
+func LoadLabels(path string) (out []int, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	var h struct{ Magic, N uint32 }
 	if err := binary.Read(f, binary.BigEndian, &h); err != nil {
@@ -71,10 +81,11 @@ func LoadLabels(path string) ([]int, error) {
 		return nil, err
 	}
 
-	out := make([]int, h.N)
+	out = make([]int, h.N)
 	for i, b := range rawData {
 		out[i] = int(b)
 	}
+
 	return out, nil
 }
 
@@ -95,5 +106,6 @@ func BuildSamples(flat []float64, labels []int, dim int) []data.Sample {
 			Y: labels[i],
 		}
 	}
+
 	return samples
 }

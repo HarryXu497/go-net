@@ -22,6 +22,7 @@ func TestLoadImages(t *testing.T) {
 	binary.Write(buf, binary.BigEndian, uint32(2))
 	binary.Write(buf, binary.BigEndian, uint32(2))
 	buf.Write([]byte{0, 127, 255, 64})
+
 	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -59,6 +60,7 @@ func TestLoadLabels(t *testing.T) {
 	binary.Write(buf, binary.BigEndian, uint32(0x00000801))
 	binary.Write(buf, binary.BigEndian, uint32(3))
 	buf.Write([]byte{5, 0, 9})
+
 	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -86,6 +88,7 @@ func TestLoadImagesBadMagic(t *testing.T) {
 	binary.Write(buf, binary.BigEndian, uint32(2))
 	binary.Write(buf, binary.BigEndian, uint32(2))
 	buf.Write([]byte{0, 0, 0, 0})
+
 	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -110,10 +113,12 @@ func TestBuildSamples(t *testing.T) {
 
 	wantX := [][]float64{{1, 2, 3}, {4, 5, 6}}
 	wantY := []int{7, 8}
+
 	for i, s := range samples {
 		if !reflect.DeepEqual(s.X, wantX[i]) {
 			t.Errorf("samples[%d].X = %v, want %v", i, s.X, wantX[i])
 		}
+
 		if s.Y != wantY[i] {
 			t.Errorf("samples[%d].Y = %d, want %d", i, s.Y, wantY[i])
 		}
@@ -122,6 +127,7 @@ func TestBuildSamples(t *testing.T) {
 	// Mutating flat should be visible through samples; pins the
 	// no-copy borrowing contract documented on BuildSamples.
 	flat[0] = 99
+
 	if got, want := samples[0].X[0], 99.0; got != want {
 		t.Errorf("after mutating flat, samples[0].X[0] = %v, want %v (X should borrow, not copy)", got, want)
 	}

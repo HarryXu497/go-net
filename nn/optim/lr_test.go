@@ -1,4 +1,4 @@
-package nn
+package optim
 
 import (
 	"math"

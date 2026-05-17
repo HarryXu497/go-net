@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"harryxu.ca/gonet/ndarray"
+	"harryxu.ca/gonet/nn/optim"
 	"harryxu.ca/gonet/tensor"
 )
 
@@ -22,16 +23,17 @@ func TestXOR(t *testing.T) {
 		NewLinear(rng, 4, 2, Glorot(), Zeros()),
 	)
 
-	optim := NewSGD(model.Parameters(), ConstantLR{Rate: 0.5})
+	optimizer := optim.NewSGD(model.Parameters(), optim.ConstantLR{Rate: 0.5})
 
 	var lossVal float64
+
 	for range NumEpochs {
 		logits := model.Forward(x)
 		loss := CrossEntropyLoss(logits, y)
 
-		optim.ZeroGrad()
+		optimizer.ZeroGrad()
 		loss.Backward()
-		optim.Step()
+		optimizer.Step()
 
 		lossVal = loss.Data().Get([]int{0})
 	}

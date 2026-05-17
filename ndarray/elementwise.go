@@ -58,6 +58,27 @@ func (a *NDArray) ReLU() *NDArray {
 	return a.unaryOp(func(x float64) float64 { return max(x, 0) })
 }
 
+// Sqrt returns a fresh contiguous tensor whose elements are sqrt(a).
+// The receiver is unchanged.
+func (a *NDArray) Sqrt() *NDArray {
+	return a.unaryOp(math.Sqrt)
+}
+
+// Tanh returns a fresh contiguous tensor whose elements are tanh(a).
+// The receiver is unchanged.
+func (a *NDArray) Tanh() *NDArray {
+	return a.unaryOp(math.Tanh)
+}
+
+// Sigmoid returns a fresh contiguous tensor whose elements are
+//
+//	1 / (1 + exp(-a))
+//
+// The receiver is unchanged.
+func (a *NDArray) Sigmoid() *NDArray {
+	return a.unaryOp((func(x float64) float64 { return 1 / (1 + math.Exp(-x)) }))
+}
+
 // IndicatorPositive returns a fresh contiguous tensor whose elements
 // are 1.0 where the corresponding element of a is strictly greater
 // than 0, and 0.0 otherwise. The receiver is unchanged.
@@ -229,6 +250,18 @@ func (a *NDArray) Zero() {
 // Special values follow IEEE 754: 0 * ±Inf = NaN, c * NaN = NaN.
 func (a *NDArray) Scale(c float64) *NDArray {
 	return a.unaryOp(func(x float64) float64 { return c * x })
+}
+
+// AddScalar returns a fresh contiguous tensor whose elements are a's
+// elements plus the scalar c. The receiver is unchanged.
+//
+// This is the scalar-broadcast form of Add: c is a plain float64, so
+// no 1-element ndarray needs to be allocated to carry it.
+//
+// Special values follow IEEE 754: +Inf + (-Inf) = NaN, finite + ±Inf
+// = ±Inf, c + NaN = NaN.
+func (a *NDArray) AddScalar(c float64) *NDArray {
+	return a.unaryOp(func(x float64) float64 { return c + x })
 }
 
 // AxpyInPlace overwrites a with a + alpha*x, elementwise.

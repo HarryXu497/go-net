@@ -831,3 +831,210 @@ func TestAxpyInPlacePanicsOnShapeMismatch(t *testing.T) {
 	x := FromSlice([]float64{1, 2, 3}, 3)
 	a.AxpyInPlace(1.0, x)
 }
+
+func TestTanhBasic(t *testing.T) {
+	a := FromSlice([]float64{0, 1, -1, 2}, 4)
+	c := a.Tanh()
+
+	want := []float64{0, math.Tanh(1), -math.Tanh(1), math.Tanh(2)}
+	if got := allValues(c); !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestTanhExtremes(t *testing.T) {
+	// tanh saturates to ±1 for large-magnitude inputs without overflow.
+	a := FromSlice([]float64{1e10, -1e10, 0}, 3)
+	c := a.Tanh()
+
+	want := []float64{1, -1, 0}
+	if got := allValues(c); !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestTanhNonContiguousInput(t *testing.T) {
+	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3).Transpose() // logical [[1,4],[2,5],[3,6]]
+	c := a.Tanh()
+
+	if !slices.Equal(c.Shape(), []int{3, 2}) {
+		t.Errorf("shape = %v, want [3 2]", c.Shape())
+	}
+
+	want := []float64{
+		math.Tanh(1), math.Tanh(4),
+		math.Tanh(2), math.Tanh(5),
+		math.Tanh(3), math.Tanh(6),
+	}
+	if got := allValues(c); !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestTanhDoesNotMutateInput(t *testing.T) {
+	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
+	_ = a.Tanh()
+
+	if got := allValues(a); !slices.Equal(got, []float64{1, 2, 3, 4}) {
+		t.Errorf("a was mutated: %v", got)
+	}
+}
+
+func TestSigmoidBasic(t *testing.T) {
+	a := FromSlice([]float64{0, 1, -1}, 3)
+	c := a.Sigmoid()
+
+	want := []float64{
+		0.5,
+		1 / (1 + math.Exp(-1)),
+		1 / (1 + math.Exp(1)),
+	}
+	if got := allValues(c); !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestSigmoidExtremes(t *testing.T) {
+	// sigmoid saturates to 0 / 1 for large-magnitude inputs without
+	// overflowing to Inf or NaN, even though exp(-x) blows up for very
+	// negative x.
+	a := FromSlice([]float64{1000, -1000}, 2)
+	c := a.Sigmoid()
+
+	want := []float64{1, 0}
+	if got := allValues(c); !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestSigmoidNonContiguousInput(t *testing.T) {
+	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3).Transpose() // logical [[1,4],[2,5],[3,6]]
+	c := a.Sigmoid()
+
+	sig := func(x float64) float64 { return 1 / (1 + math.Exp(-x)) }
+
+	want := []float64{
+		sig(1), sig(4),
+		sig(2), sig(5),
+		sig(3), sig(6),
+	}
+	if got := allValues(c); !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestSigmoidDoesNotMutateInput(t *testing.T) {
+	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
+	_ = a.Sigmoid()
+
+	if got := allValues(a); !slices.Equal(got, []float64{1, 2, 3, 4}) {
+		t.Errorf("a was mutated: %v", got)
+	}
+}
+
+func TestIndicatorPositiveBasic(t *testing.T) {
+	a := FromSlice([]float64{-2, -0.5, 0, 0.5, 2}, 5)
+	c := a.IndicatorPositive()
+
+	want := []float64{0, 0, 0, 1, 1}
+	if got := allValues(c); !slices.Equal(got, want) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestIndicatorPositiveAtZero(t *testing.T) {
+	// PyTorch convention: the ReLU subgradient at exactly 0 is 0, not 1.
+	a := FromSlice([]float64{0}, 1)
+	c := a.IndicatorPositive()
+
+	if got := c.Get([]int{0}); got != 0 {
+		t.Errorf("IndicatorPositive(0) = %v, want 0", got)
+	}
+}
+
+func TestIndicatorPositiveNegativeZero(t *testing.T) {
+	// -0.0 > 0 is false in IEEE 754, so it must map to 0 just like +0.
+	a := FromSlice([]float64{math.Copysign(0, -1)}, 1)
+	c := a.IndicatorPositive()
+
+	if got := c.Get([]int{0}); got != 0 {
+		t.Errorf("IndicatorPositive(-0) = %v, want 0", got)
+	}
+}
+
+func TestIndicatorPositiveNonContiguousInput(t *testing.T) {
+	// Transposed input: logical layout is [[-1,4],[2,-5],[-3,6]].
+	a := FromSlice([]float64{-1, 2, -3, 4, -5, 6}, 2, 3).Transpose()
+	c := a.IndicatorPositive()
+
+	if !slices.Equal(c.Shape(), []int{3, 2}) {
+		t.Errorf("shape = %v, want [3 2]", c.Shape())
+	}
+
+	want := []float64{0, 1, 1, 0, 0, 1}
+	if got := allValues(c); !slices.Equal(got, want) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestIndicatorPositiveDoesNotMutateInput(t *testing.T) {
+	a := FromSlice([]float64{-1, 0, 1, 2}, 2, 2)
+	_ = a.IndicatorPositive()
+
+	if got := allValues(a); !slices.Equal(got, []float64{-1, 0, 1, 2}) {
+		t.Errorf("a was mutated: %v", got)
+	}
+}
+
+func TestAxpyInPlacePanicsOnNonContiguousReceiver(t *testing.T) {
+	// A transposed receiver is non-contiguous; AxpyInPlace requires
+	// direct slice iteration, so it must reject this rather than
+	// silently miswriting.
+	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3).Transpose() // shape (3,2), non-contiguous
+	x := FromSlice([]float64{0, 0, 0, 0, 0, 0}, 3, 2)
+
+	assertPanics(t, func() { a.AxpyInPlace(1.0, x) })
+}
+
+func TestAxpyInPlacePanicsOnNonContiguousArgument(t *testing.T) {
+	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 3, 2)
+	x := FromSlice([]float64{0, 0, 0, 0, 0, 0}, 2, 3).Transpose() // shape (3,2), non-contiguous
+
+	assertPanics(t, func() { a.AxpyInPlace(1.0, x) })
+}
+
+func TestAxpyInPlacePanicsOnReceiverWithOffset(t *testing.T) {
+	// A sliced view has offset > 0 and does not own the full backing
+	// buffer; iterating data directly would touch elements outside the
+	// view, so AxpyInPlace must reject it.
+	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 6)
+	view := a.Slice(Rng(2, 5)) // shape (3,), offset 2
+	x := FromSlice([]float64{0, 0, 0}, 3)
+
+	assertPanics(t, func() { view.AxpyInPlace(1.0, x) })
+}
+
+func TestAxpyInPlaceZeroAlpha(t *testing.T) {
+	// alpha = 0 means a += 0, i.e. a is unchanged.
+	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
+	x := FromSlice([]float64{10, 20, 30, 40}, 2, 2)
+
+	a.AxpyInPlace(0, x)
+
+	want := []float64{1, 2, 3, 4}
+	if got := allValues(a); !slices.Equal(got, want) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+func TestAxpyInPlaceSelfAxpy(t *testing.T) {
+	// a.AxpyInPlace(alpha, a) is well-defined: both buffers walk in
+	// the same order, so each element becomes (1 + alpha) * a[i].
+	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
+	a.AxpyInPlace(2, a)
+
+	want := []float64{3, 6, 9, 12}
+	if got := allValues(a); !floatsClose(got, want, 1e-12) {
+		t.Errorf("values = %v, want %v", got, want)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"harryxu.ca/gonet/data"
 	"harryxu.ca/gonet/ndarray"
 	"harryxu.ca/gonet/nn"
+	"harryxu.ca/gonet/nn/optim"
 	"harryxu.ca/gonet/tensor"
 )
 
@@ -15,7 +16,7 @@ const (
 	numPixels  = 784
 	numClasses = 10
 	batchSize  = 64
-	numEpochs  = 15
+	numEpochs  = 25
 )
 
 func main() {
@@ -25,14 +26,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("load train images: %v", err)
 	}
+
 	trainY, err := LoadLabels("mnistdata/train-labels-idx1-ubyte")
 	if err != nil {
 		log.Fatalf("load train labels: %v", err)
 	}
+
 	testFlat, nTest, err := LoadImages("mnistdata/t10k-images-idx3-ubyte")
 	if err != nil {
 		log.Fatalf("load test images: %v", err)
 	}
+
 	testY, err := LoadLabels("mnistdata/t10k-labels-idx1-ubyte")
 	if err != nil {
 		log.Fatalf("load test labels: %v", err)
@@ -48,7 +52,7 @@ func main() {
 		&nn.ReLU{},
 		nn.NewLinear(rng, 128, numClasses, nn.Glorot(), nn.Zeros()),
 	)
-	optim := nn.NewSGD(model.Parameters(), nn.ConstantLR{Rate: 0.1})
+	optimizer := optim.NewAdamDefault(model.Parameters())
 
 	for epoch := range numEpochs {
 		for batch := range loader.Batches() {
@@ -57,9 +61,9 @@ func main() {
 			logits := model.Forward(tensor.NewTensor(xb))
 			loss := nn.CrossEntropyLoss(logits, yb)
 
-			optim.ZeroGrad()
+			optimizer.ZeroGrad()
 			loss.Backward()
-			optim.Step()
+			optimizer.Step()
 		}
 
 		acc := evaluate(model, testX, testY)
@@ -83,6 +87,7 @@ func evaluate(model nn.Module, x *ndarray.NDArray, y []int) float64 {
 				best, bestVal = j, v
 			}
 		}
+
 		if best == y[i] {
 			correct++
 		}

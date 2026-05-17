@@ -147,6 +147,23 @@ func TestReLUGrad(t *testing.T) {
 	gradCheck(t, "ReLU(x)", x, ReLU)
 }
 
+// TestTanhGrad: moderate-magnitude inputs keep tanh well inside the
+// saturating regime where 1 - tanh² is still differentiable enough for
+// central differences to be stable. Mixes positive, negative, and zero
+// (tanh is smooth at 0, unlike ReLU).
+func TestTanhGrad(t *testing.T) {
+	x := NewLeaf(ndarray.FromSlice([]float64{-1.5, -0.4, 0.0, 0.7, 1.2}, 5))
+	gradCheck(t, "Tanh(x)", x, Tanh)
+}
+
+// TestSigmoidGrad: inputs within (-2, 2) so σ stays away from 0 and 1
+// and the σ(1-σ) derivative remains numerically well-conditioned for
+// the central-difference comparison.
+func TestSigmoidGrad(t *testing.T) {
+	x := NewLeaf(ndarray.FromSlice([]float64{-1.8, -0.6, 0.0, 0.5, 1.4}, 5))
+	gradCheck(t, "Sigmoid(x)", x, Sigmoid)
+}
+
 // TestRequiresGradPropagation locks in the contract that the output of a
 // binary op requires grad iff at least one input does, and that the
 // non-grad operand is never allocated a grad. Add stands in for all
