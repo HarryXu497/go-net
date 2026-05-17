@@ -38,7 +38,7 @@ func TestMatmul2D(t *testing.T) {
 	//                  [11,12]]
 	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3)
 	b := FromSlice([]float64{7, 8, 9, 10, 11, 12}, 3, 2)
-	c := a.Matmul(b)
+	c := a.MatMul(b)
 
 	if !slices.Equal(c.Shape(), []int{2, 2}) {
 		t.Errorf("shape = %v, want [2 2]", c.Shape())
@@ -55,7 +55,7 @@ func TestMatmulIdentity(t *testing.T) {
 	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3)
 	I := FromSlice([]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, 3, 3)
 
-	got := allValues(a.Matmul(I))
+	got := allValues(a.MatMul(I))
 
 	want := allValues(a)
 	if !floatsClose(got, want, matmulTol) {
@@ -70,7 +70,7 @@ func TestMatmulThroughTransposeView(t *testing.T) {
 	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3)
 	aT := a.Transpose()
 
-	c := aT.Matmul(a)
+	c := aT.MatMul(a)
 
 	if !slices.Equal(c.Shape(), []int{3, 3}) {
 		t.Errorf("shape = %v, want [3 3]", c.Shape())
@@ -99,7 +99,7 @@ func TestMatmulBatched(t *testing.T) {
 
 	a := FromSlice(aData, 2, 3, 4)
 	b := FromSlice(bData, 2, 4, 5)
-	c := a.Matmul(b)
+	c := a.MatMul(b)
 
 	if !slices.Equal(c.Shape(), []int{2, 3, 5}) {
 		t.Errorf("shape = %v, want [2 3 5]", c.Shape())
@@ -132,7 +132,7 @@ func TestMatmulBroadcastRightOperand(t *testing.T) {
 
 	a := FromSlice(aData, 2, 3, 4)
 	b := FromSlice(bData, 4, 5)
-	c := a.Matmul(b)
+	c := a.MatMul(b)
 
 	if !slices.Equal(c.Shape(), []int{2, 3, 5}) {
 		t.Errorf("shape = %v, want [2 3 5]", c.Shape())
@@ -164,7 +164,7 @@ func TestMatmulBroadcastLeftOperand(t *testing.T) {
 
 	a := FromSlice(aData, 3, 4)
 	b := FromSlice(bData, 2, 4, 5)
-	c := a.Matmul(b)
+	c := a.MatMul(b)
 
 	if !slices.Equal(c.Shape(), []int{2, 3, 5}) {
 		t.Errorf("shape = %v, want [2 3 5]", c.Shape())
@@ -196,7 +196,7 @@ func TestMatmulMultiAxisBatchBroadcast(t *testing.T) {
 
 	a := FromSlice(aData, 2, 1, 3, 4)
 	b := FromSlice(bData, 1, 5, 4, 6)
-	c := a.Matmul(b)
+	c := a.MatMul(b)
 
 	if !slices.Equal(c.Shape(), []int{2, 5, 3, 6}) {
 		t.Errorf("shape = %v, want [2 5 3 6]", c.Shape())
@@ -228,7 +228,7 @@ func TestMatmulContractionMismatchPanics(t *testing.T) {
 		}
 	}()
 
-	a.Matmul(b)
+	a.MatMul(b)
 }
 
 func TestMatmulBatchBroadcastMismatchPanics(t *testing.T) {
@@ -242,7 +242,7 @@ func TestMatmulBatchBroadcastMismatchPanics(t *testing.T) {
 		}
 	}()
 
-	a.Matmul(b)
+	a.MatMul(b)
 }
 
 func TestMatmulLowRankPanics(t *testing.T) {
@@ -263,7 +263,7 @@ func TestMatmulLowRankPanics(t *testing.T) {
 				}
 			}()
 
-			tc.a.Matmul(tc.b)
+			tc.a.MatMul(tc.b)
 		})
 	}
 }

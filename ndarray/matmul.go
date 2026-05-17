@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// Matmul returns the matrix product of a and b as a fresh contiguous
+// MatMul returns the matrix product of a and b as a fresh contiguous
 // tensor, following numpy's semantics: the last two axes are the
 // matrix dimensions and any leading axes are broadcast as batch dims.
 //
@@ -19,7 +19,7 @@ import (
 // result shape is broadcastShape(a.shape[:-2], b.shape[:-2]) +
 // [M, N].
 //
-// Matmul panics if either operand has rank < 2, if the contracted
+// MatMul panics if either operand has rank < 2, if the contracted
 // axes disagree, or if the leading dims fail to broadcast.
 //
 // Examples:
@@ -27,23 +27,23 @@ import (
 //	// 2-D × 2-D (the Linear-layer case)
 //	a := FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3)        // (2, 3)
 //	b := FromSlice([]float64{7, 8, 9, 10, 11, 12}, 3, 2)     // (3, 2)
-//	a.Matmul(b)                                              // (2, 2)
+//	a.MatMul(b)                                              // (2, 2)
 //
 //	// 3-D × 3-D — batched 2-D matmul over the leading axis
 //	x := NewNDArray(5, 3, 4)
 //	w := NewNDArray(5, 4, 2)
-//	x.Matmul(w)                                              // (5, 3, 2)
+//	x.MatMul(w)                                              // (5, 3, 2)
 //
 //	// 3-D × 2-D — right operand broadcast across the batch
 //	x := NewNDArray(5, 3, 4)
 //	w := NewNDArray(4, 2)
-//	x.Matmul(w)                                              // (5, 3, 2)
+//	x.MatMul(w)                                              // (5, 3, 2)
 //
 //	// Multi-axis batch broadcast
 //	x := NewNDArray(7, 1, 3, 4)
 //	w := NewNDArray(1, 5, 4, 2)
-//	x.Matmul(w)                                              // (7, 5, 3, 2)
-func (a *NDArray) Matmul(b *NDArray) *NDArray {
+//	x.MatMul(w)                                              // (7, 5, 3, 2)
+func (a *NDArray) MatMul(b *NDArray) *NDArray {
 	if a.Ndim() < 2 {
 		panic(fmt.Sprintf("ndarray: matmul requires rank >= 2 on the left, got shape %v", a.shape))
 	}

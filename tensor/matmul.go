@@ -7,17 +7,17 @@ package tensor
 //	∂out/∂a = g @ b^T
 //	∂out/∂b = a^T @ g
 func MatMul(a, b *Tensor) *Tensor {
-	out := NewTensor(a.data.Matmul(b.data))
+	out := NewTensor(a.data.MatMul(b.data))
 	if a.requiresGrad || b.requiresGrad {
 		out.requiresGrad = true
 		out.parents = []*Tensor{a, b}
 		out.backward = func() {
 			if a.requiresGrad {
-				a.accumulateGrad(out.grad.Matmul(b.data.Transpose()))
+				a.accumulateGrad(out.grad.MatMul(b.data.Transpose()))
 			}
 
 			if b.requiresGrad {
-				b.accumulateGrad(a.data.Transpose().Matmul(out.grad))
+				b.accumulateGrad(a.data.Transpose().MatMul(out.grad))
 			}
 		}
 	}
