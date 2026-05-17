@@ -29,6 +29,7 @@ func inversePerm(perm []int) []int {
 	for i, axis := range perm {
 		q[axis] = i
 	}
+
 	return q
 }
 

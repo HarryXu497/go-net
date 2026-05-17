@@ -22,7 +22,7 @@ func unbroadcast(a *ndarray.NDArray, targetShape []int) *ndarray.NDArray {
 	if slices.Equal(a.Shape(), targetShape) {
 		return a
 	}
-	
+
 	// Sum along leading axes to "collapse" them
 	extra := a.Ndim() - len(targetShape)
 	if extra > 0 {
@@ -30,11 +30,13 @@ func unbroadcast(a *ndarray.NDArray, targetShape []int) *ndarray.NDArray {
 		for i := range axes {
 			axes[i] = i
 		}
+
 		a = a.Sum(axes, false)
 	}
 
 	// Sum along size-1 axes to "collapse" them
 	axes := make([]int, 0, a.Ndim())
+
 	gShape := a.Shape()
 	for i, dim := range targetShape {
 		if dim == 1 && gShape[i] != 1 {
@@ -47,4 +49,4 @@ func unbroadcast(a *ndarray.NDArray, targetShape []int) *ndarray.NDArray {
 	}
 
 	return a
-} 
+}

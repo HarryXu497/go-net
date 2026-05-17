@@ -15,6 +15,7 @@ func TestSoftmaxCrossEntropyKnownLoss(t *testing.T) {
 	loss := SoftmaxCrossEntropy(logits, []int{0})
 
 	got := loss.Data().Get([]int{0})
+
 	want := math.Log(2)
 	if math.Abs(got-want) > 1e-12 {
 		t.Errorf("loss = %v, want log(2) = %v (|diff| = %g)", got, want, math.Abs(got-want))
@@ -51,6 +52,7 @@ func TestSoftmaxCrossEntropyPanicOnBatchMismatch(t *testing.T) {
 			t.Errorf("expected panic on len(targets) != batch, got nil")
 		}
 	}()
+
 	logits := NewTensor(ndarray.FromSlice([]float64{1, 2, 3, 4}, 2, 2))
 	SoftmaxCrossEntropy(logits, []int{0, 1, 1})
 }

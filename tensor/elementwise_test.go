@@ -14,6 +14,7 @@ func TestAddGrad(t *testing.T) {
 	t.Run("same shape", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{6, 5, 4, 3, 2, 1}, 2, 3))
+
 		gradCheck(t, "Add(x, b)", x, func(x *Tensor) *Tensor { return Add(x, b) })
 	})
 
@@ -26,6 +27,7 @@ func TestAddGrad(t *testing.T) {
 	t.Run("broadcast lower rank rhs", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{0.5, -0.5, 2}, 3))
+
 		gradCheck(t, "Add(x, b) (2,3)+(3,)", x, func(x *Tensor) *Tensor { return Add(x, b) })
 	})
 
@@ -38,6 +40,7 @@ func TestAddGrad(t *testing.T) {
 	t.Run("broadcast size-1 axis", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{0.5, -0.5, 2}, 1, 3))
+
 		gradCheck(t, "Add(x, b) (2,3)+(1,3)", x, func(x *Tensor) *Tensor { return Add(x, b) })
 	})
 }
@@ -49,6 +52,7 @@ func TestSubGrad(t *testing.T) {
 	t.Run("same shape, leaf on lhs", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{6, 5, 4, 3, 2, 1}, 2, 3))
+
 		gradCheck(t, "Sub(x, b)", x, func(x *Tensor) *Tensor { return Sub(x, b) })
 	})
 
@@ -72,12 +76,14 @@ func TestMulGrad(t *testing.T) {
 	t.Run("same shape", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{0.5, -1, 2, 0.25, -2, 3}, 2, 3))
+
 		gradCheck(t, "Mul(x, b)", x, func(x *Tensor) *Tensor { return Mul(x, b) })
 	})
 
 	t.Run("broadcast, leaf on lhs", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{0.5, -0.5, 2}, 3))
+
 		gradCheck(t, "Mul(x, b) (2,3)*(3,)", x, func(x *Tensor) *Tensor { return Mul(x, b) })
 	})
 
@@ -95,6 +101,7 @@ func TestDivGrad(t *testing.T) {
 	t.Run("same shape, leaf on lhs (numerator)", func(t *testing.T) {
 		x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3, 4, 5, 6}, 2, 3))
 		b := NewTensor(ndarray.FromSlice([]float64{2, 4, -1, 0.5, -2, 3}, 2, 3))
+
 		gradCheck(t, "Div(x, b)", x, func(x *Tensor) *Tensor { return Div(x, b) })
 	})
 
@@ -115,21 +122,21 @@ func TestDivGrad(t *testing.T) {
 // pin the contract.
 func TestNegGrad(t *testing.T) {
 	x := NewLeaf(ndarray.FromSlice([]float64{-2, -1, 0, 1, 2}, 5))
-	gradCheck(t, "Neg(x)", x, func(x *Tensor) *Tensor { return Neg(x) })
+	gradCheck(t, "Neg(x)", x, Neg)
 }
 
 // TestExpGrad: magnitudes stay small so exp(x) and its derivative remain
 // well within central-difference tolerance.
 func TestExpGrad(t *testing.T) {
 	x := NewLeaf(ndarray.FromSlice([]float64{-1.0, -0.3, 0.0, 0.5, 1.2}, 5))
-	gradCheck(t, "Exp(x)", x, func(x *Tensor) *Tensor { return Exp(x) })
+	gradCheck(t, "Exp(x)", x, Exp)
 }
 
 // TestLogGrad: strictly positive inputs, none too close to zero (so 1/x
 // stays bounded and finite differences are stable).
 func TestLogGrad(t *testing.T) {
 	x := NewLeaf(ndarray.FromSlice([]float64{0.5, 1.0, 1.5, 2.0, 3.0}, 5))
-	gradCheck(t, "Log(x)", x, func(x *Tensor) *Tensor { return Log(x) })
+	gradCheck(t, "Log(x)", x, Log)
 }
 
 // TestReLUGrad: inputs are clearly positive or clearly negative -- no
@@ -137,7 +144,7 @@ func TestLogGrad(t *testing.T) {
 // differences unreliable there.
 func TestReLUGrad(t *testing.T) {
 	x := NewLeaf(ndarray.FromSlice([]float64{-2.0, -0.5, 0.3, 1.0, 2.5}, 5))
-	gradCheck(t, "ReLU(x)", x, func(x *Tensor) *Tensor { return ReLU(x) })
+	gradCheck(t, "ReLU(x)", x, ReLU)
 }
 
 // TestRequiresGradPropagation locks in the contract that the output of a
@@ -153,10 +160,13 @@ func TestRequiresGradPropagation(t *testing.T) {
 		if !out.RequiresGrad() {
 			t.Fatalf("Add(leaf, const) must require grad")
 		}
+
 		out.Backward()
+
 		if x.Grad() == nil {
 			t.Errorf("x.Grad() should be populated")
 		}
+
 		if c.Grad() != nil {
 			t.Errorf("c.Grad() should remain nil; got %v", c.Grad())
 		}
@@ -164,11 +174,14 @@ func TestRequiresGradPropagation(t *testing.T) {
 
 	t.Run("unary on const -> no grad, no backward closure", func(t *testing.T) {
 		c := NewTensor(ndarray.FromSlice([]float64{0.5, 1.0, 1.5}, 3))
+
 		out := Log(c)
 		if out.RequiresGrad() {
 			t.Fatalf("Log(const) must not require grad")
 		}
+
 		out.Backward()
+
 		if c.Grad() != nil {
 			t.Errorf("c.Grad() should remain nil; got %v", c.Grad())
 		}

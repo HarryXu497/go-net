@@ -5,6 +5,32 @@ import (
 	"math"
 )
 
+// axisSet treats axes as the membership list of a set over [0, ndim)
+// and returns that set as a bool slice (true at index i iff axis i
+// appears in axes). Panics on out-of-range or duplicate axes -- the
+// list cannot form a valid set in those cases, so construction fails.
+//
+// Callers that only need validation can ignore the returned slice;
+// callers that need to distinguish "in the set" from "out of the set"
+// (e.g. reductions distinguishing reduced from preserved axes) read
+// the mask directly.
+func axisSet(axes []int, ndim int) []bool {
+	seen := make([]bool, ndim)
+	for _, axis := range axes {
+		if axis < 0 || axis >= ndim {
+			panic(fmt.Sprintf("ndarray: axis %d out of range [0, %d)", axis, ndim))
+		}
+
+		if seen[axis] {
+			panic(fmt.Sprintf("ndarray: axis %d appears more than once", axis))
+		}
+
+		seen[axis] = true
+	}
+
+	return seen
+}
+
 // Reduce collapses a along the given axes by repeatedly applying fn
 // starting from init, and returns a fresh contiguous tensor with the
 // result.
@@ -25,21 +51,9 @@ func (a *NDArray) Reduce(axes []int, keepDims bool, init float64, fn func(float6
 		for i := range axes {
 			axes[i] = i
 		}
-	} 
-
-	seen := make([]bool, a.Ndim())
-	for _, axis := range axes {
-		if axis < 0 || axis >= a.Ndim() {
-			panic(fmt.Sprintf("ndarray: axis %d out of range [0, %d)", axis, a.Ndim()))
-		}
-
-		if seen[axis] {
-			panic(fmt.Sprintf("ndarray: axis %d appears more than once", axis))
-		}
-
-		seen[axis] = true
 	}
 
+	seen := axisSet(axes, a.Ndim())
 	outShape := make([]int, 0, a.Ndim())
 
 	for axis := range a.shape {

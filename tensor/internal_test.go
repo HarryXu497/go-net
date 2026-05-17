@@ -55,6 +55,7 @@ func TestUnbroadcast(t *testing.T) {
 			if !slices.Equal(got.Shape(), tc.wantShape) {
 				t.Fatalf("shape: got %v, want %v", got.Shape(), tc.wantShape)
 			}
+
 			gotValues := slices.Collect(got.All())
 			if !slices.Equal(gotValues, tc.want) {
 				t.Errorf("values: got %v, want %v", gotValues, tc.want)

@@ -18,6 +18,7 @@ func Add(a, b *Tensor) *Tensor {
 			if a.requiresGrad {
 				a.accumulateGrad(unbroadcast(out.grad, aShape))
 			}
+
 			if b.requiresGrad {
 				b.accumulateGrad(unbroadcast(out.grad, bShape))
 			}
@@ -44,6 +45,7 @@ func Sub(a, b *Tensor) *Tensor {
 			if a.requiresGrad {
 				a.accumulateGrad(unbroadcast(out.grad, aShape))
 			}
+
 			if b.requiresGrad {
 				b.accumulateGrad(unbroadcast(out.grad.Neg(), bShape))
 			}
@@ -70,6 +72,7 @@ func Mul(a, b *Tensor) *Tensor {
 			if a.requiresGrad {
 				a.accumulateGrad(unbroadcast(out.grad.Mul(b.data), aShape))
 			}
+
 			if b.requiresGrad {
 				b.accumulateGrad(unbroadcast(out.grad.Mul(a.data), bShape))
 			}
@@ -97,6 +100,7 @@ func Div(a, b *Tensor) *Tensor {
 			if a.requiresGrad {
 				a.accumulateGrad(unbroadcast(out.grad.Div(b.data), aShape))
 			}
+
 			if b.requiresGrad {
 				derivativeB := out.grad.Mul(out.data).Div(b.data).Neg()
 				b.accumulateGrad(unbroadcast(derivativeB, bShape))

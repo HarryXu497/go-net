@@ -73,18 +73,7 @@ func (a *NDArray) Transpose(perm ...int) *NDArray {
 		panic(fmt.Sprintf("ndarray: expected %d axes, got %d", a.Ndim(), len(perm)))
 	}
 
-	seen := make([]bool, a.Ndim())
-	for _, axis := range perm {
-		if axis < 0 || axis >= a.Ndim() {
-			panic(fmt.Sprintf("ndarray: axis %d out of range [0, %d)", axis, a.Ndim()))
-		}
-
-		if seen[axis] {
-			panic(fmt.Sprintf("ndarray: axis %d appears more than once", axis))
-		}
-
-		seen[axis] = true
-	}
+	axisSet(perm, a.Ndim())
 
 	newShape := make([]int, a.Ndim())
 	newStrides := make([]int, a.Ndim())

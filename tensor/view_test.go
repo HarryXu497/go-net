@@ -42,6 +42,7 @@ func TestTransposeGrad(t *testing.T) {
 		for i := range data {
 			data[i] = float64(i + 1)
 		}
+
 		x := NewLeaf(ndarray.FromSlice(data, 2, 3, 4))
 		gradCheck(t, "Transpose(x, 2, 0, 1)", x, func(x *Tensor) *Tensor {
 			return Transpose(x, 2, 0, 1)
@@ -54,6 +55,7 @@ func TestTransposeGrad(t *testing.T) {
 // surfaces here rather than as a confusing Transpose gradCheck failure.
 func TestInversePerm(t *testing.T) {
 	got := inversePerm([]int{2, 0, 1})
+
 	want := []int{1, 2, 0}
 	if !slices.Equal(got, want) {
 		t.Errorf("inversePerm([2,0,1]) = %v, want %v", got, want)

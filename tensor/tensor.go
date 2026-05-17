@@ -19,8 +19,8 @@ import "harryxu.ca/goml/ndarray"
 type Tensor struct {
 	data         *ndarray.NDArray
 	grad         *ndarray.NDArray
-	parents      []*Tensor
 	backward     func()
+	parents      []*Tensor
 	requiresGrad bool
 }
 

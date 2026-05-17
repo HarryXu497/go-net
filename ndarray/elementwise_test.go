@@ -686,6 +686,7 @@ func TestAddInPlaceScalarReceiver(t *testing.T) {
 	// Rank-0 receiver and rank-0 addend.
 	a := NewNDArray()
 	a.Set([]int{}, 5)
+
 	b := NewNDArray()
 	b.Set([]int{}, 3)
 	a.AddInPlace(b)
@@ -776,12 +777,14 @@ func TestScaleSpecialValues(t *testing.T) {
 	a := FromSlice([]float64{math.Inf(+1), math.Inf(-1), math.NaN(), 2}, 4)
 
 	gotZero := allValues(a.Scale(0))
+
 	wantZero := []float64{math.NaN(), math.NaN(), math.NaN(), 0}
 	if !floatsClose(gotZero, wantZero, 0) {
 		t.Errorf("Scale(0) on [+Inf,-Inf,NaN,2] = %v, want %v", gotZero, wantZero)
 	}
 
 	gotTwo := allValues(a.Scale(2))
+
 	wantTwo := []float64{math.Inf(+1), math.Inf(-1), math.NaN(), 4}
 	if !floatsClose(gotTwo, wantTwo, 0) {
 		t.Errorf("Scale(2) on [+Inf,-Inf,NaN,2] = %v, want %v", gotTwo, wantTwo)
@@ -790,6 +793,7 @@ func TestScaleSpecialValues(t *testing.T) {
 	// c=NaN propagates regardless of input.
 	b := FromSlice([]float64{1, 2, 3}, 3)
 	gotNaN := allValues(b.Scale(math.NaN()))
+
 	wantNaN := []float64{math.NaN(), math.NaN(), math.NaN()}
 	if !floatsClose(gotNaN, wantNaN, 0) {
 		t.Errorf("Scale(NaN) = %v, want %v", gotNaN, wantNaN)

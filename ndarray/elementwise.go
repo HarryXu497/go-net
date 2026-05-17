@@ -68,6 +68,7 @@ func (a *NDArray) IndicatorPositive() *NDArray {
 		if x > 0 {
 			return 1
 		}
+
 		return 0
 	})
 }
@@ -195,8 +196,10 @@ func (a *NDArray) Fill(value float64) {
 		for i := range a.data {
 			a.data[i] = value
 		}
+
 		return
 	}
+
 	for _, offset := range a.indicesAndOffsets() {
 		a.data[offset] = value
 	}

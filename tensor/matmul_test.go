@@ -21,6 +21,7 @@ func TestMatMulGrad(t *testing.T) {
 			-2, 3, 0.1, -0.5,
 			1, 0.5, -1.5, 2,
 		}, 3, 4))
+
 		gradCheck(t, "MatMul(x, b)", x, func(x *Tensor) *Tensor { return MatMul(x, b) })
 	})
 

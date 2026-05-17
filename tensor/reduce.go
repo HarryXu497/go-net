@@ -28,6 +28,7 @@ func Sum(t *Tensor, axes []int, keepDims bool) *Tensor {
 					tShape[ax] = 1
 				}
 			}
+
 			t.accumulateGrad(out.grad.Reshape(tShape...))
 		}
 	}

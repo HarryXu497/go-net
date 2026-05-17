@@ -15,10 +15,12 @@ func MatMul(a, b *Tensor) *Tensor {
 			if a.requiresGrad {
 				a.accumulateGrad(out.grad.Matmul(b.data.Transpose()))
 			}
+
 			if b.requiresGrad {
 				b.accumulateGrad(a.data.Transpose().Matmul(out.grad))
 			}
 		}
 	}
+
 	return out
 }

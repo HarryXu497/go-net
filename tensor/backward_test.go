@@ -27,6 +27,7 @@ func gradCheck(t *testing.T, name string, x *Tensor, f func(*Tensor) *Tensor) {
 	// Analytic gradient
 	y := f(x)
 	y.Backward()
+
 	analytic := x.grad.Copy()
 
 	// Numeric gradient
@@ -48,10 +49,11 @@ func gradCheck(t *testing.T, name string, x *Tensor, f func(*Tensor) *Tensor) {
 		numeric.Set(multiIndex, (lossPlus-lossMinus)/(2*gradCheckH))
 	}
 
-	// Compare 
+	// Compare
 	for flat := range size {
 		idx := flatToMulti(flat, shape)
 		a := analytic.Get(idx)
+
 		n := numeric.Get(idx)
 		if math.Abs(a-n) > gradCheckTol {
 			t.Errorf("%s: grad at %v: analytic=%g, numeric=%g, |diff|=%g",
@@ -64,10 +66,11 @@ func gradCheck(t *testing.T, name string, x *Tensor, f func(*Tensor) *Tensor) {
 // in row-major order.
 func flatToMulti(flat int, shape []int) []int {
 	out := make([]int, len(shape))
-	for i := len(shape) - 1; i >= 0; i-- {
-		out[i] = flat % shape[i]
-		flat /= shape[i]
+	for i, v := range slices.Backward(shape) {
+		out[i] = flat % v
+		flat /= v
 	}
+
 	return out
 }
 
@@ -77,6 +80,7 @@ func scalarSum(a *ndarray.NDArray) float64 {
 	for v := range a.All() {
 		s += v
 	}
+
 	return s
 }
 
@@ -97,9 +101,11 @@ func TestBackwardNoRequiresGradIsNoOp(t *testing.T) {
 	if a.Grad() != nil {
 		t.Errorf("a.Grad() should remain nil; got %v", a.Grad())
 	}
+
 	if b.Grad() != nil {
 		t.Errorf("b.Grad() should remain nil; got %v", b.Grad())
 	}
+
 	if out.Grad() != nil {
 		t.Errorf("out.Grad() should remain nil; got %v", out.Grad())
 	}
@@ -139,6 +145,7 @@ func TestBackwardAccumulatesAcrossCalls(t *testing.T) {
 	y.Backward()
 
 	got := slices.Collect(x.grad.All())
+
 	want := []float64{-2, -2, -2}
 	if !slices.Equal(got, want) {
 		t.Errorf("two Backward calls without ZeroGrad: want %v, got %v", want, got)
@@ -157,6 +164,7 @@ func TestZeroGradResetsBetweenSteps(t *testing.T) {
 	y.Backward()
 
 	got := slices.Collect(x.grad.All())
+
 	want := []float64{-1, -1, -1}
 	if !slices.Equal(got, want) {
 		t.Errorf("ZeroGrad between Backward calls: want %v, got %v", want, got)

@@ -19,12 +19,15 @@ func TestConstructors(t *testing.T) {
 		if nt.RequiresGrad() {
 			t.Errorf("NewTensor must not require grad")
 		}
+
 		if nt.Data() != data {
 			t.Errorf("Data() should return the same pointer that was passed in")
 		}
+
 		if nt.Grad() != nil {
 			t.Errorf("Grad() should be nil for a freshly constructed tensor; got %v", nt.Grad())
 		}
+
 		if !slices.Equal(nt.Shape(), []int{2, 2}) {
 			t.Errorf("Shape() = %v, want [2 2]", nt.Shape())
 		}
@@ -35,6 +38,7 @@ func TestConstructors(t *testing.T) {
 		if !nl.RequiresGrad() {
 			t.Errorf("NewLeaf must require grad")
 		}
+
 		if nl.Grad() != nil {
 			t.Errorf("Grad() should still be nil before any backward; got %v", nl.Grad())
 		}
@@ -53,13 +57,16 @@ func TestZeroGrad(t *testing.T) {
 	}
 
 	x.ZeroGrad()
+
 	gradAfterFirst := x.Grad()
 	if gradAfterFirst == nil {
 		t.Fatalf("ZeroGrad must allocate when grad is nil")
 	}
+
 	if !slices.Equal(gradAfterFirst.Shape(), []int{3}) {
 		t.Errorf("allocated shape = %v, want [3]", gradAfterFirst.Shape())
 	}
+
 	for i, v := range slices.Collect(gradAfterFirst.All()) {
 		if v != 0 {
 			t.Errorf("grad[%d] = %v, want 0", i, v)
@@ -72,9 +79,11 @@ func TestZeroGrad(t *testing.T) {
 	// holding references to params' grads would silently miss updates.
 	x.accumulateGrad(ndarray.FromSlice([]float64{1, 2, 3}, 3))
 	x.ZeroGrad()
+
 	if x.Grad() != gradAfterFirst {
 		t.Errorf("ZeroGrad must zero in place; got new pointer")
 	}
+
 	for i, v := range slices.Collect(x.Grad().All()) {
 		if v != 0 {
 			t.Errorf("after ZeroGrad: grad[%d] = %v, want 0", i, v)
@@ -91,11 +100,13 @@ func TestAccumulateGradLazyAlloc(t *testing.T) {
 	x := NewLeaf(ndarray.FromSlice([]float64{1, 2, 3}, 3))
 
 	x.accumulateGrad(ndarray.FromSlice([]float64{10, 20, 30}, 3))
+
 	if got := slices.Collect(x.Grad().All()); !slices.Equal(got, []float64{10, 20, 30}) {
 		t.Errorf("first accumulate: got %v, want [10 20 30]", got)
 	}
 
 	x.accumulateGrad(ndarray.FromSlice([]float64{1, 2, 3}, 3))
+
 	if got := slices.Collect(x.Grad().All()); !slices.Equal(got, []float64{11, 22, 33}) {
 		t.Errorf("second accumulate: got %v, want [11 22 33]", got)
 	}
