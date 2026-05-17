@@ -15,3 +15,9 @@ test:
 	@go test -v ./...
 
 t: test
+
+build:
+	@go build -o ./mnist/mnist ./cmd/mnist/
+
+run:
+	@go run ./cmd/mnist
