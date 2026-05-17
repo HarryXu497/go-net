@@ -799,3 +799,33 @@ func TestScaleSpecialValues(t *testing.T) {
 		t.Errorf("Scale(NaN) = %v, want %v", gotNaN, wantNaN)
 	}
 }
+
+// TestAxpyInPlaceUpdatesElements pins the formula a += alpha*x with a
+// negative alpha to mimic the SGD use case (a is params, x is grads,
+// alpha is -lr).
+func TestAxpyInPlaceUpdatesElements(t *testing.T) {
+	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
+	x := FromSlice([]float64{10, 20, 30, 40}, 2, 2)
+
+	a.AxpyInPlace(-0.1, x)
+
+	got := allValues(a)
+	want := []float64{0, 0, 0, 0}
+	if !floatsClose(got, want, 1e-12) {
+		t.Errorf("AxpyInPlace(-0.1, x): got %v, want %v", got, want)
+	}
+}
+
+// TestAxpyInPlacePanicsOnShapeMismatch: same-shape is a hard
+// precondition, and the panic is the only thing standing between a
+// caller's bug and silent buffer-overrun corruption.
+func TestAxpyInPlacePanicsOnShapeMismatch(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected panic on shape mismatch, got nil")
+		}
+	}()
+	a := FromSlice([]float64{1, 2, 3, 4}, 2, 2)
+	x := FromSlice([]float64{1, 2, 3}, 3)
+	a.AxpyInPlace(1.0, x)
+}

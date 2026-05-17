@@ -1,8 +1,10 @@
 package ndarray
 
 import (
+	"fmt"
 	"iter"
 	"math"
+	"slices"
 )
 
 // unaryOp applies op elementwise to a and returns a fresh contiguous
@@ -227,4 +229,28 @@ func (a *NDArray) Zero() {
 // Special values follow IEEE 754: 0 * ±Inf = NaN, c * NaN = NaN.
 func (a *NDArray) Scale(c float64) *NDArray {
 	return a.unaryOp(func(x float64) float64 { return c * x })
+}
+
+
+// AxpyInPlace overwrites a with a + alpha*x, elementwise.
+// Gradient descent uses this with alpha = -lr to step parameters
+// against their gradient without allocating additional memory.
+//
+// Requires a.shape == x.shape. Iterates the backing slices directly,
+// so a and x must both be contiguous with offset 0.
+//
+// Panics on shape mismatch.
+func (a *NDArray) AxpyInPlace(alpha float64, x *NDArray) {
+	if !slices.Equal(a.shape, x.shape) {
+		panic(fmt.Sprintf("ndarray: AxpyInPlace shape mismatch: %v vs %v", a.shape, x.shape))
+	}
+	if !(a.IsContiguous() && a.offset == 0 && len(a.data) == a.Size()) {
+		panic("ndarray: AxpyInPlace requires a contiguous receiver with offset 0")
+	}
+	if !(x.IsContiguous() && x.offset == 0 && len(x.data) == x.Size()) {
+		panic("ndarray: AxpyInPlace requires a contiguous argument with offset 0")
+	}
+	for i := range a.data {
+		a.data[i] += alpha * x.data[i]
+	}
 }
