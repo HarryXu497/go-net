@@ -1,6 +1,6 @@
 # GoNet
 
-A tiny PyTorch-style deep learning library written from scratch in Go, with reverse-mode autograd over a strided n-dimensional array. Achieves a 98.13% test accuracy on MNIST handwritten digit classification.
+A PyTorch-style deep learning library written from scratch in Go, with reverse-mode autograd over a strided n-dimensional array. Reaches 98.13% test accuracy on MNIST handwritten digit classification by epoch 8.
 
 I built this to practice Go and to deepen my understanding of neural networks. I wanted to run autograd over **tensors** just like PyTorch: broadcasting, strided views, and batched matmul all participate in the backward pass. Every exported symbol carries a full doc comment, and every package is covered by an extensive unit-test suite.
 
@@ -8,13 +8,14 @@ I built this to practice Go and to deepen my understanding of neural networks. I
 
 - **No external dependencies.** Everything written with the Go standard library.
 - **Three-layer abstraction**, modeled on PyTorch:
-  - `ndarray`: strided, row-major float64 buffers with broadcasting, reductions, matmul, and views (transpose, reshape, slice).
+  - `ndarray`: strided, row-major float64 buffers with broadcasting, reductions, and matmul. `Transpose`, `Reshape`, `Slice`, and `BroadcastTo` return zero-copy views that share their parent's backing buffer through different `(shape, strides, offset)` triples, the same representation PyTorch and NumPy use.
   - `tensor` : computational graph nodes wrapping ndarrays; each op records a `backward` closure, and `Backward()` walks a topologically-sorted graph in reverse to accumulate gradients into leaves.
   - `nn`: composable `Module`s — `Linear`, `ReLU`, `Tanh`, `Sigmoid`, `Sequential`, `CrossEntropyLoss` plus weight initialization strategies (`He`, `Glorot`, `Zeros`).
   - `nn/optim`: PyTorch-style optimizer subpackage with `SGD` and `Adam` (bias correction, paper defaults), and LR schedules (`ConstantLR`, `ExpDecayLR`, `StepDecayLR`).
 - **`data` package** with a generic `Dataset[T]` interface, an in-memory `SliceDataset[T]`, a shuffling `DataLoader[T]` that yields batches via Go 1.23 range-over-func iterators, and a `Collate` helper for stacking samples into batched ndarrays.
 - **Fused SoftmaxCrossEntropy**: softmax and cross-entropy are combined into a single operation: the forward subtracts each row's max before `exp` prevent overflow, and the backward uses the closed-form `(softmax − one_hot) / batch` gradient instead of composing through `softmax`, `log`, and `sum` separately.
-- **Fully documented and tested.** Every public type, function, and method has a doc comment explaining edge cases and preconditions, and every package ships with a thorough unit-test suite.
+- **Verified autograd.** Every backward closure is gradient-checked against central differences in tests, the same technique PyTorch and JAX use to certify their primitives.
+- **Fully documented and tested.** Every public type, function, and method has a doc comment explaining edge cases and preconditions, and the project contains 305 unit tests across 6 packages.
 
 ## MNIST
 
