@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/rand"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // Initializer produces a fresh ndarray of the given shape, optionally

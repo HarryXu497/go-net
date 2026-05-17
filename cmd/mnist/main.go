@@ -5,10 +5,10 @@ import (
 	"log"
 	"math/rand"
 
-	"harryxu.ca/goml/data"
-	"harryxu.ca/goml/ndarray"
-	"harryxu.ca/goml/nn"
-	"harryxu.ca/goml/tensor"
+	"harryxu.ca/gonet/data"
+	"harryxu.ca/gonet/ndarray"
+	"harryxu.ca/gonet/nn"
+	"harryxu.ca/gonet/tensor"
 )
 
 const (

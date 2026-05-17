@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"harryxu.ca/goml/data"
+	"harryxu.ca/gonet/data"
 )
 
 const (

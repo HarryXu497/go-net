@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // TestConstructors locks in the contract that distinguishes the two

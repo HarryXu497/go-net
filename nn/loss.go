@@ -1,6 +1,6 @@
 package nn
 
-import "harryxu.ca/goml/tensor"
+import "harryxu.ca/gonet/tensor"
 
 // CrossEntropyLoss returns the mean cross-entropy loss of softmax(logits)
 // against integer class targets.

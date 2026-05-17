@@ -1,6 +1,6 @@
 package nn
 
-import "harryxu.ca/goml/tensor"
+import "harryxu.ca/gonet/tensor"
 
 type Module interface {
 	Forward(x *tensor.Tensor) *tensor.Tensor

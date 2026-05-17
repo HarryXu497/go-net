@@ -3,7 +3,7 @@ package tensor
 import (
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // TestAddGrad exercises Add across same-shape, leaf-on-rhs, and the two

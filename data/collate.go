@@ -3,7 +3,7 @@ package data
 import (
 	"fmt"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // Collate stacks a batch of Samples into a contiguous (batchSize, dim)

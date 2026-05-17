@@ -3,7 +3,7 @@ package tensor
 import (
 	"fmt"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // SoftmaxCrossEntropy returns the mean cross-entropy loss of softmax(logits)

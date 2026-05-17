@@ -3,7 +3,7 @@ package tensor
 import (
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // TestSumGrad covers the three reshape regimes the backward has to handle:

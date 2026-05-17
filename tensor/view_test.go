@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // TestReshapeGrad exercises both a rank-preserving reshape and a

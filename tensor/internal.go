@@ -3,7 +3,7 @@ package tensor
 import (
 	"slices"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // unbroadcast collapses g back to targetShape by summing over the axes

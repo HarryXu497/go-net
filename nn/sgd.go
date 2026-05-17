@@ -1,6 +1,6 @@
 package nn
 
-import "harryxu.ca/goml/tensor"
+import "harryxu.ca/gonet/tensor"
 
 // SGD is a stochastic gradient descent optimizer. On each Step it pulls
 // every parameter in the direction opposite its accumulated gradient:

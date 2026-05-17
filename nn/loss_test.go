@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
-	"harryxu.ca/goml/tensor"
+	"harryxu.ca/gonet/ndarray"
+	"harryxu.ca/gonet/tensor"
 )
 
 // TestCrossEntropyLossKnownValue confirms the nn-layer wrapper produces

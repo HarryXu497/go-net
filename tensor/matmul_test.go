@@ -3,7 +3,7 @@ package tensor
 import (
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // TestMatMulGrad verifies both adjoints (g @ b^T and a^T @ g) via finite

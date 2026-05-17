@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"harryxu.ca/goml/tensor"
+	"harryxu.ca/gonet/tensor"
 )
 
 // Linear is a fully-connected layer: y = x @ W + b. W and b are leaf

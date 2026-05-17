@@ -1,6 +1,6 @@
 package nn
 
-import "harryxu.ca/goml/tensor"
+import "harryxu.ca/gonet/tensor"
 
 // ReLU is a parameter-less module that applies the rectified linear
 // unit elementwise. Thin wrapper around tensor.ReLU.

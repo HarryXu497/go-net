@@ -1,6 +1,6 @@
 package tensor
 
-import "harryxu.ca/goml/ndarray"
+import "harryxu.ca/gonet/ndarray"
 
 // Tensor is a node in the autograd computation graph. It pairs a forward
 // data buffer with an optional gradient buffer and the closure required

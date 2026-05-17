@@ -1,8 +1,10 @@
 package tensor
 
-import "slices"
+import (
+	"slices"
 
-import "harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
+)
 
 // Backward computes gradients of t (treated as the scalar loss) w.r.t.
 // every parameter reachable through the parents chain. Gradients

@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
-	"harryxu.ca/goml/tensor"
+	"harryxu.ca/gonet/ndarray"
+	"harryxu.ca/gonet/tensor"
 )
 
 // TestReLUForward verifies the forward elementwise: positives pass

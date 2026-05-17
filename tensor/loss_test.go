@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 // TestSoftmaxCrossEntropyKnownLoss pins the forward against a hand-computed

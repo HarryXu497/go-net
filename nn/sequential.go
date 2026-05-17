@@ -1,6 +1,6 @@
 package nn
 
-import "harryxu.ca/goml/tensor"
+import "harryxu.ca/gonet/tensor"
 
 // Sequential composes a list of modules into a single Module, threading
 // the forward signal through each in order.

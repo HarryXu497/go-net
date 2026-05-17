@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"harryxu.ca/goml/ndarray"
+	"harryxu.ca/gonet/ndarray"
 )
 
 const (
