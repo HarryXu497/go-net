@@ -22,6 +22,12 @@ import (
 // MatMul panics if either operand has rank < 2, if the contracted
 // axes disagree, or if the leading dims fail to broadcast.
 //
+// The inner kernel partitions the flattened (batch, M) output rows
+// across GOMAXPROCS workers via parallelForWork. Each worker writes a
+// disjoint span of out.data and only reads from aView/bView, so the
+// op is race-free. Small problems (batchSize*M*N*K below the
+// parallelForWork threshold) fall back to a single-goroutine pass.
+//
 // Examples:
 //
 //	// 2-D × 2-D (the Linear-layer case)
@@ -90,40 +96,48 @@ func (a *NDArray) MatMul(b *NDArray) *NDArray {
 		batchSize *= d
 	}
 
-	batchIdx := make([]int, leadRank)
+	rows := batchSize * M
 
-	for batch := range batchSize {
-		// Unravel the flat batch counter into a multi-index over leadOut.
-		rem := batch
-		for k := leadRank - 1; k >= 0; k-- {
-			batchIdx[k] = rem % leadOut[k]
-			rem /= leadOut[k]
-		}
+	parallelForWork(rows, N*K, func(start, end int) {
+		batchIdx := make([]int, leadRank)
 
-		// Base buffer offsets of the 2-D slice for this batch index.
-		aBase := aView.offset
-		bBase := bView.offset
-		outBase := out.offset
+		for r := start; r < end; r++ {
+			batch := r / M
+			i := r % M
 
-		for k, idx := range batchIdx {
-			aBase += idx * aView.strides[k]
-			bBase += idx * bView.strides[k]
-			outBase += idx * out.strides[k]
-		}
+			// Unravel the flat batch counter into a multi-index over leadOut.
+			rem := batch
+			for k := leadRank - 1; k >= 0; k-- {
+				batchIdx[k] = rem % leadOut[k]
+				rem /= leadOut[k]
+			}
 
-		// 2-D kernel: out[i, j] = sum_k a[i, k] * b[k, j].
-		for i := range M {
+			// Base buffer offsets of the 2-D slice for this batch index.
+			aBase := aView.offset
+			bBase := bView.offset
+			outBase := out.offset
+
+			for k, idx := range batchIdx {
+				aBase += idx * aView.strides[k]
+				bBase += idx * bView.strides[k]
+				outBase += idx * out.strides[k]
+			}
+
+			// Inner kernel: out[i, j] = sum_k a[i, k] * b[k, j].
+			aRow := aBase + i*aStrideM
+			outRow := outBase + i*outStrideM
+
 			for j := range N {
 				var sum float64
 				for k := range K {
-					sum += aView.data[aBase+i*aStrideM+k*aStrideK] *
+					sum += aView.data[aRow+k*aStrideK] *
 						bView.data[bBase+k*bStrideK+j*bStrideN]
 				}
 
-				out.data[outBase+i*outStrideM+j*outStrideN] = sum
+				out.data[outRow+j*outStrideN] = sum
 			}
 		}
-	}
+	})
 
 	return out
 }

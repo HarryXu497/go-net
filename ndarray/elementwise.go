@@ -10,11 +10,28 @@ import (
 // unaryOp applies op elementwise to a and returns a fresh contiguous
 // tensor with the same shape. The receiver is unchanged.
 //
-// unaryOp walks a in shape order and writes results sequentially into a
-// fresh row-major buffer, so it is correct for any view of a.
+// When a is contiguous with offset 0, unaryOp walks both buffers
+// linearly and partitions the index range across GOMAXPROCS workers
+// via parallelFor; each worker reads and writes a disjoint slice, so
+// the op is race-free. Otherwise it falls back to a sequential
+// iterator-driven walk in shape order.
 func (a *NDArray) unaryOp(op func(float64) float64) *NDArray {
 	out := NewNDArray(a.shape...)
 
+	if a.IsContiguous() && a.offset == 0 {
+		// Fast contiguous path: walk both buffers linearly.
+		parallelFor(out.Size(), func(start, end int) {
+			for i := start; i < end; i++ {
+				out.data[i] = op(a.data[i])
+			}
+		})
+
+		return out
+	}
+
+	// Slow strided path: walk a in shape order via the iterator.
+	// Parallelizing this is harder because indicesAndOffsets yields
+	// sequentially.
 	i := 0
 	for _, aOff := range a.indicesAndOffsets() {
 		out.data[i] = op(a.data[aOff])
@@ -104,6 +121,13 @@ func (a *NDArray) IndicatorPositive() *NDArray {
 // any size-1 axis is stretched against the other side. op is invoked once
 // per output cell with the corresponding broadcast values from a and b.
 //
+// When a and b are both contiguous and share an identical shape (no
+// broadcasting required), binaryOp walks all three buffers linearly
+// and partitions the index range across GOMAXPROCS workers via
+// parallelFor; each worker reads and writes a disjoint slice, so the
+// op is race-free. The broadcast and strided cases fall back to a
+// sequential iterator-driven walk.
+//
 // It panics if the shapes are not broadcast-compatible (delegated to
 // broadcastShape).
 func (a *NDArray) binaryOp(b *NDArray, op func(float64, float64) float64) *NDArray {
@@ -111,6 +135,20 @@ func (a *NDArray) binaryOp(b *NDArray, op func(float64, float64) float64) *NDArr
 	aView := a.BroadcastTo(outShape...)
 	bView := b.BroadcastTo(outShape...)
 	out := NewNDArray(outShape...)
+
+	if a.IsContiguous() && a.offset == 0 &&
+		b.IsContiguous() && b.offset == 0 &&
+		slices.Equal(a.shape, b.shape) {
+		// Fast contiguous path: walk both a and b linearly and
+		// apply the operation.
+		parallelFor(out.Size(), func(start, end int) {
+			for i := start; i < end; i++ {
+				out.data[i] = op(a.data[i], b.data[i])
+			}
+		})
+
+		return out
+	}
 
 	// All three views share outShape and are walked in shape order.
 	aPull, aStop := iter.Pull2(aView.indicesAndOffsets())

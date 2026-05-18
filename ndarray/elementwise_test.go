@@ -2,6 +2,7 @@ package ndarray
 
 import (
 	"math"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -1036,5 +1037,123 @@ func TestAxpyInPlaceSelfAxpy(t *testing.T) {
 	want := []float64{3, 6, 9, 12}
 	if got := allValues(a); !floatsClose(got, want, 1e-12) {
 		t.Errorf("values = %v, want %v", got, want)
+	}
+}
+
+// TestUnaryOpParallelPath uses a tensor large enough to cross
+// parallelFor's threshold, so the contiguous fast path inside unaryOp
+// runs across multiple workers. The per-worker reads (from a.data)
+// and writes (to out.data) hit disjoint indices; the test under -race
+// asserts that holds.
+func TestUnaryOpParallelPath(t *testing.T) {
+	n := minChunkSize * runtime.GOMAXPROCS(0) * 4
+
+	data := make([]float64, n)
+	for i := range data {
+		data[i] = float64(i%101) * 0.1
+	}
+
+	a := FromSlice(data, n)
+	got := allValues(a.Neg())
+
+	want := make([]float64, n)
+	for i, v := range data {
+		want[i] = -v
+	}
+
+	if !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("parallel unaryOp disagrees with serial reference")
+	}
+}
+
+// TestUnaryOpStridedStillSerial exercises the iterator-driven slow
+// path (non-contiguous input via a transposed view) at a size that
+// would otherwise trigger the parallel path. Confirms the slow-path
+// fallback wasn't accidentally bypassed by the parallel guard.
+func TestUnaryOpStridedStillSerial(t *testing.T) {
+	const rows, cols = 128, 256
+
+	data := make([]float64, rows*cols)
+	for i := range data {
+		data[i] = float64(i%101) * 0.1
+	}
+
+	a := FromSlice(data, rows, cols)
+	aT := a.Transpose() // shape (cols, rows), non-contiguous strides
+
+	got := allValues(aT.Neg())
+
+	// Build the reference by iterating in shape order on the transpose.
+	want := make([]float64, 0, rows*cols)
+	for v := range aT.All() {
+		want = append(want, -v)
+	}
+
+	if !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("strided unaryOp disagrees with reference")
+	}
+}
+
+// TestBinaryOpParallelPath uses two same-shape contiguous tensors
+// large enough to trigger the parallel fast path in binaryOp. Three
+// disjoint buffers (a.data, b.data, out.data) so concurrent reads and
+// writes are race-free under -race.
+func TestBinaryOpParallelPath(t *testing.T) {
+	n := minChunkSize * runtime.GOMAXPROCS(0) * 4
+
+	aData := make([]float64, n)
+	bData := make([]float64, n)
+
+	for i := range aData {
+		aData[i] = float64(i%101) * 0.1
+		bData[i] = float64(i%97) * 0.2
+	}
+
+	a := FromSlice(aData, n)
+	b := FromSlice(bData, n)
+
+	got := allValues(a.Add(b))
+
+	want := make([]float64, n)
+	for i := range want {
+		want[i] = aData[i] + bData[i]
+	}
+
+	if !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("parallel binaryOp disagrees with serial reference")
+	}
+}
+
+// TestBinaryOpBroadcastStillSerial: when shapes differ, binaryOp must
+// fall through to the iterator-driven broadcast walk regardless of
+// size. Bias-add is the canonical case; using a large enough tensor
+// that the contiguous fast path would otherwise have parallelized.
+func TestBinaryOpBroadcastStillSerial(t *testing.T) {
+	const rows, cols = 256, 256
+
+	aData := make([]float64, rows*cols)
+	for i := range aData {
+		aData[i] = float64(i%101) * 0.1
+	}
+
+	bData := make([]float64, cols)
+	for i := range bData {
+		bData[i] = float64(i%23) * 0.05
+	}
+
+	a := FromSlice(aData, rows, cols)
+	b := FromSlice(bData, cols)
+
+	got := allValues(a.Add(b))
+
+	want := make([]float64, rows*cols)
+	for i := range rows {
+		for j := range cols {
+			want[i*cols+j] = aData[i*cols+j] + bData[j]
+		}
+	}
+
+	if !floatsClose(got, want, elementwiseTol) {
+		t.Errorf("broadcast binaryOp disagrees with reference")
 	}
 }

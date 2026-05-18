@@ -3,6 +3,8 @@ package ndarray
 import (
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 )
 
 // axisSet treats axes as the membership list of a set over [0, ndim)
@@ -31,6 +33,27 @@ func axisSet(axes []int, ndim int) []bool {
 	return seen
 }
 
+// reducedAxesAreTrailing reports whether the reduced axes (the true
+// entries of seen) form a contiguous suffix of seen. Vacuously true
+// when no axes are reduced (all entries false) and when every axis is
+// reduced (all entries true). The trailing-suffix layout is what lets
+// the parallel fast path treat each output cell as a contiguous slab
+// of the input buffer.
+func reducedAxesAreTrailing(seen []bool) bool {
+	i := 0
+	for i < len(seen) && !seen[i] {
+		i++
+	}
+
+	for ; i < len(seen); i++ {
+		if !seen[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Reduce collapses a along the given axes by repeatedly applying fn
 // starting from init, and returns a fresh contiguous tensor with the
 // result.
@@ -40,8 +63,15 @@ func axisSet(axes []int, ndim int) []bool {
 // replacing each with size 1 (keepDims=true). Passing an empty axes
 // slice reduces over all axes.
 //
-// fn is invoked exactly a.Size() times in shape order with the running
-// accumulator and the next input value.
+// fn is invoked exactly a.Size() times. The serial path calls it in
+// shape order. The parallel fast paths (contiguous input, offset 0)
+// preserve order within each chunk and merge partials by chunk index,
+// so fn only needs to be associative for parallel results to match
+// serial; commutativity is not required. The trailing-axes path needs
+// neither (each output cell is computed independently in shape order).
+// Sum, Max, Min, and Product all qualify. A non-associative fn passed
+// to a contiguous input that triggers the parallel branch will produce
+// results that differ from the serial walk.
 //
 // Reduce panics if any axis is out of range [0, a.Ndim()) or appears
 // more than once.
@@ -54,27 +84,135 @@ func (a *NDArray) Reduce(axes []int, keepDims bool, init float64, fn func(float6
 	}
 
 	seen := axisSet(axes, a.Ndim())
-	outShape := make([]int, 0, a.Ndim())
+	out := NewNDArray(reduceOutShape(a.shape, seen, keepDims)...)
 
-	for axis := range a.shape {
-		if seen[axis] {
-			if keepDims {
-				outShape = append(outShape, 1)
-			}
-		} else {
-			outShape = append(outShape, a.shape[axis])
+	if a.IsContiguous() && a.offset == 0 {
+		switch {
+		case out.Size() == 1:
+			a.reduceFull(out, init, fn)
+			return out
+		case reducedAxesAreTrailing(seen):
+			a.reduceTrailing(out, init, fn)
+			return out
 		}
 	}
 
-	out := NewNDArray(outShape...)
+	a.reduceSlow(out, seen, keepDims, init, fn)
+
+	return out
+}
+
+// reduceOutShape derives the output shape for a reduction. Reduced
+// axes either drop out entirely or collapse to size 1 (keepDims).
+func reduceOutShape(inShape []int, seen []bool, keepDims bool) []int {
+	out := make([]int, 0, len(inShape))
+
+	for axis, dim := range inShape {
+		switch {
+		case !seen[axis]:
+			out = append(out, dim)
+		case keepDims:
+			out = append(out, 1)
+		}
+	}
+
+	return out
+}
+
+// reduceFull is the full-reduction (scalar output) fast path. The
+// input is partitioned across workers; each accumulates its chunk in
+// shape order; the per-chunk partials are then folded left-to-right
+// by chunk index so fn only needs to be associative, not commutative.
+// Chunking is inlined because the parallel branch needs per-worker
+// indices to write into the partials slice.
+func (a *NDArray) reduceFull(out *NDArray, init float64, fn func(float64, float64) float64) {
+	n := a.Size()
+	workers := runtime.GOMAXPROCS(0)
+
+	if workers <= 1 || n < minChunkSize*workers {
+		result := init
+		for i := range n {
+			result = fn(result, a.data[i])
+		}
+
+		out.data[0] = result
+
+		return
+	}
+
+	chunk := (n + workers - 1) / workers
+	partials := make([]float64, workers)
+
+	var (
+		wg      sync.WaitGroup
+		spawned int
+	)
+
+	for w := range workers {
+		start := w * chunk
+		end := min((w+1)*chunk, n)
+
+		if start >= end {
+			break
+		}
+
+		spawned++
+
+		wg.Go(func() {
+			local := init
+			for i := start; i < end; i++ {
+				local = fn(local, a.data[i])
+			}
+
+			partials[w] = local
+		})
+	}
+
+	wg.Wait()
+
+	result := init
+	for i := range spawned {
+		result = fn(result, partials[i])
+	}
+
+	out.data[0] = result
+}
+
+// reduceTrailing is the trailing-axes-suffix fast path: each output
+// cell owns a contiguous input slab of length reducedSize, so output
+// cells write disjointly across workers without synchronization. The
+// shape-order accumulation within each cell makes this path safe for
+// any fn (associativity and commutativity are both unnecessary).
+func (a *NDArray) reduceTrailing(out *NDArray, init float64, fn func(float64, float64) float64) {
+	outerSize := out.Size()
+	reducedSize := a.Size() / outerSize
+
+	parallelForWork(outerSize, reducedSize, func(start, end int) {
+		for o := start; o < end; o++ {
+			acc := init
+
+			base := o * reducedSize
+			for k := range reducedSize {
+				acc = fn(acc, a.data[base+k])
+			}
+
+			out.data[o] = acc
+		}
+	})
+}
+
+// reduceSlow is the general iterator-driven fallback for non-contiguous
+// inputs and reductions whose reduced axes don't form a trailing
+// suffix. Many input cells map to each output cell, so the inner step
+// is a read-modify-write and stays serial.
+func (a *NDArray) reduceSlow(out *NDArray, seen []bool, keepDims bool, init float64, fn func(float64, float64) float64) {
 	for i := range out.data {
 		out.data[i] = init
 	}
 
 	// Pre-compute, for each input axis, the output stride it contributes
 	// to. Reduced axes contribute 0: dropped axes have no output position,
-	// and keepDims size-1 axes always have index 0. This lets the inner
-	// loop walk every input element with a single pass over the axes.
+	// and keepDims size-1 axes always have index 0.
 	axisToOutStride := make([]int, a.Ndim())
 	outAxis := 0
 
@@ -98,8 +236,6 @@ func (a *NDArray) Reduce(axes []int, keepDims bool, init float64, fn func(float6
 
 		out.data[outOffset] = fn(out.data[outOffset], a.data[offset])
 	}
-
-	return out
 }
 
 // Sum returns a fresh contiguous tensor whose elements are the sums of

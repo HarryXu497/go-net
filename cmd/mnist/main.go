@@ -16,7 +16,7 @@ const (
 	numPixels  = 784
 	numClasses = 10
 	batchSize  = 64
-	numEpochs  = 25
+	numEpochs  = 10
 )
 
 func main() {

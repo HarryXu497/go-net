@@ -218,6 +218,74 @@ func TestMatmulMultiAxisBatchBroadcast(t *testing.T) {
 	}
 }
 
+// TestMatmulParallelPath2D uses shapes large enough that
+// rows*N*K crosses parallelForWork's threshold, so the inner kernel
+// runs across multiple workers. Compared against the serial reference
+// to confirm the partitioning math hasn't broken correctness.
+func TestMatmulParallelPath2D(t *testing.T) {
+	const M, K, N = 64, 512, 128
+
+	aData := make([]float64, M*K)
+	for i := range aData {
+		aData[i] = float64(i%17) * 0.1
+	}
+
+	bData := make([]float64, K*N)
+	for i := range bData {
+		bData[i] = float64(i%23) * 0.05
+	}
+
+	a := FromSlice(aData, M, K)
+	b := FromSlice(bData, K, N)
+	c := a.MatMul(b)
+
+	if !slices.Equal(c.Shape(), []int{M, N}) {
+		t.Errorf("shape = %v, want [%d %d]", c.Shape(), M, N)
+	}
+
+	want := matmul2DReference(a, b)
+	if got := allValues(c); !floatsClose(got, want, matmulTol) {
+		t.Errorf("parallel matmul disagrees with reference (first mismatch wins)")
+	}
+}
+
+// TestMatmulParallelPathBatched exercises the flattened (batch, M)
+// indexing under the parallel path: batchSize > 1, each row of every
+// batch becomes an independent work item. The per-worker batchIdx
+// buffer must give the correct base offsets for every (batch, i) pair.
+func TestMatmulParallelPathBatched(t *testing.T) {
+	const B, M, K, N = 4, 32, 256, 64
+
+	aData := make([]float64, B*M*K)
+	for i := range aData {
+		aData[i] = float64(i%13) * 0.1
+	}
+
+	bData := make([]float64, B*K*N)
+	for i := range bData {
+		bData[i] = float64(i%19) * 0.05
+	}
+
+	a := FromSlice(aData, B, M, K)
+	b := FromSlice(bData, B, K, N)
+	c := a.MatMul(b)
+
+	if !slices.Equal(c.Shape(), []int{B, M, N}) {
+		t.Errorf("shape = %v, want [%d %d %d]", c.Shape(), B, M, N)
+	}
+
+	for batch := range B {
+		aMat := a.Slice(Idx(batch), All(), All())
+		bMat := b.Slice(Idx(batch), All(), All())
+		cMat := c.Slice(Idx(batch), All(), All())
+
+		want := matmul2DReference(aMat, bMat)
+		if got := allValues(cMat); !floatsClose(got, want, matmulTol) {
+			t.Errorf("batch %d: parallel matmul disagrees with reference", batch)
+		}
+	}
+}
+
 func TestMatmulContractionMismatchPanics(t *testing.T) {
 	a := NewNDArray(2, 3)
 	b := NewNDArray(4, 5) // 3 != 4

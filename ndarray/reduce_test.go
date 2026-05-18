@@ -2,6 +2,7 @@ package ndarray
 
 import (
 	"math"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -395,5 +396,155 @@ func TestSoftmaxStabilityPattern(t *testing.T) {
 	want := []float64{1, 1}
 	if got := allValues(rowSums); !floatsClose(got, want, 1e-12) {
 		t.Errorf("row sums = %v, want %v", got, want)
+	}
+}
+
+// TestSumTrailingAxisParallelPath uses a shape large enough that
+// outerSize*reducedSize crosses parallelForWork's threshold, so the
+// axis-reduction fast path partitions output cells across workers.
+// Compared against a per-row reference sum.
+func TestSumTrailingAxisParallelPath(t *testing.T) {
+	const rows, cols = 256, 1024
+
+	data := make([]float64, rows*cols)
+	for i := range data {
+		data[i] = float64(i%101) * 0.1
+	}
+
+	a := FromSlice(data, rows, cols)
+	got := allValues(a.Sum([]int{1}, false))
+
+	want := make([]float64, rows)
+	for i := range rows {
+		var s float64
+		for j := range cols {
+			s += data[i*cols+j]
+		}
+
+		want[i] = s
+	}
+
+	if !floatsClose(got, want, 1e-9) {
+		t.Errorf("parallel trailing-axis sum disagrees with reference")
+	}
+}
+
+// TestMaxTrailingAxisParallelPath exercises the same fast path with a
+// non-Sum reducer (different init and fn) to confirm it isn't
+// Sum-specific.
+func TestMaxTrailingAxisParallelPath(t *testing.T) {
+	const rows, cols = 256, 1024
+
+	data := make([]float64, rows*cols)
+	for i := range data {
+		// Strictly increasing within each row, so the max is the last
+		// element. Pattern keeps the reference trivial to compute.
+		data[i] = float64(i)
+	}
+
+	a := FromSlice(data, rows, cols)
+	got := allValues(a.Max([]int{1}, false))
+
+	want := make([]float64, rows)
+	for i := range rows {
+		want[i] = data[i*cols+cols-1]
+	}
+
+	if !floatsClose(got, want, 0) {
+		t.Errorf("parallel trailing-axis max disagrees with reference")
+	}
+}
+
+// TestSumFullReductionParallelPath exercises the full-reduction fast
+// path: input is large, output is a single scalar, workers compute
+// per-chunk partials merged under a mutex. fp addition is not strictly
+// associative so allow a small tolerance.
+func TestSumFullReductionParallelPath(t *testing.T) {
+	const n = 1 << 20
+
+	data := make([]float64, n)
+	for i := range data {
+		data[i] = float64(i%101) * 0.1
+	}
+
+	a := FromSlice(data, n)
+	got := allValues(a.Sum(nil, false))
+
+	var want float64
+	for _, v := range data {
+		want += v
+	}
+
+	if len(got) != 1 {
+		t.Fatalf("scalar result expected, got shape %v", a.Sum(nil, false).Shape())
+	}
+
+	if math.Abs(got[0]-want) > 1e-6 {
+		t.Errorf("full-reduction parallel sum = %v, want %v (diff %v)", got[0], want, got[0]-want)
+	}
+}
+
+// TestSumLeadingAxisStillSerial: reducing axis 0 of a (rows, cols)
+// tensor is NOT a trailing-suffix reduction, so it must fall through
+// to the serial path even at sizes that would otherwise parallelize.
+// This protects against a future refactor accidentally taking the
+// fast path for non-trailing axes (which would compute wrong answers,
+// since output cells wouldn't own contiguous slabs).
+func TestSumLeadingAxisStillSerial(t *testing.T) {
+	const rows, cols = 256, 1024
+
+	data := make([]float64, rows*cols)
+	for i := range data {
+		data[i] = float64(i%101) * 0.1
+	}
+
+	a := FromSlice(data, rows, cols)
+	got := allValues(a.Sum([]int{0}, false))
+
+	want := make([]float64, cols)
+	for j := range cols {
+		var s float64
+		for i := range rows {
+			s += data[i*cols+j]
+		}
+
+		want[j] = s
+	}
+
+	if !floatsClose(got, want, 1e-9) {
+		t.Errorf("leading-axis sum disagrees with reference")
+	}
+}
+
+// TestReduceOrderStableMerge proves the full-reduction parallel path
+// preserves chunk order: a non-commutative but associative fn produces
+// the same result as a serial walk.
+//
+// The "right-bias" fn (acc, x) -> x is associative (any nested
+// composition returns the rightmost argument) but not commutative.
+// Reducing [a0, a1, ..., a_{n-1}] with init=0 gives a_{n-1} under
+// serial order. The parallel path must agree, which it can only do if
+// per-chunk partials are merged left-to-right by chunk index (not in
+// goroutine-completion order).
+//
+// Size is chosen well above minChunkSize*workers so the parallel
+// branch fires.
+func TestReduceOrderStableMerge(t *testing.T) {
+	n := minChunkSize * runtime.GOMAXPROCS(0) * 4
+
+	data := make([]float64, n)
+	for i := range data {
+		data[i] = float64(i + 1)
+	}
+
+	a := FromSlice(data, n)
+
+	rightBias := func(_, x float64) float64 { return x }
+
+	got := a.Reduce(nil, false, 0, rightBias)
+
+	want := data[n-1]
+	if v := got.Get([]int{}); v != want {
+		t.Errorf("ordered merge produced %v, want %v (last element)", v, want)
 	}
 }
