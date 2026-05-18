@@ -19,35 +19,41 @@ type parallelJob struct {
 	start, end int
 }
 
-var (
-	parallelJobs    chan parallelJob
-	parallelWorkers int
-)
-
-// init starts a persistent pool of GOMAXPROCS worker goroutines that
-// block on parallelJobs for the lifetime of the process. Reusing the
-// same workers across every parallelFor call avoids the per-call
-// goroutine spawn time.
+// workerPool owns a fixed set of long-lived goroutines that pull jobs
+// from a shared channel. Reusing the same workers across every
+// parallelFor call avoids the per-call goroutine spawn cost that
+// dominates pprof when many small ops dispatch in a tight loop.
 //
-// The pool size is fixed at init time; callers that change
-// runtime.GOMAXPROCS later still get correct results but may either
-// over-enqueue (extra jobs queue up and run serially in the pool) or
-// leave workers idle.
-//
-// Worker bodies must not themselves call parallelForWork.
-func init() {
-	parallelWorkers = runtime.GOMAXPROCS(0)
-	parallelJobs = make(chan parallelJob, parallelWorkers)
-
-	for range parallelWorkers {
-		go func() {
-			for job := range parallelJobs {
-				job.body(job.start, job.end)
-				job.wg.Done()
-			}
-		}()
-	}
+// Worker bodies must not themselves call parallelForWork — a nested
+// call could deadlock if every pool worker is occupied running the
+// outer body. None of ndarray's current callers nest.
+type workerPool struct {
+	jobs    chan parallelJob
+	once    sync.Once
+	workers int
 }
+
+// ensure lazily spins up the pool on the first parallel-path call.
+// Pool size is fixed at the GOMAXPROCS value observed when ensure
+// first runs; later runtime.GOMAXPROCS changes are not reflected.
+func (p *workerPool) ensure() {
+	p.once.Do(func() {
+		p.workers = runtime.GOMAXPROCS(0)
+		p.jobs = make(chan parallelJob, p.workers)
+
+		for range p.workers {
+			go func() {
+				for job := range p.jobs {
+					job.body(job.start, job.end)
+					job.wg.Done()
+				}
+			}()
+		}
+	})
+}
+
+//nolint:gochecknoglobals // process-wide singleton, accessed via ensure()
+var pool workerPool
 
 // parallelForWork splits the index range [0, n) into roughly equal
 // chunks across GOMAXPROCS workers and dispatches each chunk to the
@@ -69,6 +75,8 @@ func parallelForWork(n, workPerIndex int, body func(start, end int)) {
 		return
 	}
 
+	pool.ensure()
+
 	chunk := (n + workers - 1) / workers
 
 	var wg sync.WaitGroup
@@ -82,7 +90,8 @@ func parallelForWork(n, workPerIndex int, body func(start, end int)) {
 		}
 
 		wg.Add(1)
-		parallelJobs <- parallelJob{body: body, start: start, end: end, wg: &wg}
+
+		pool.jobs <- parallelJob{body: body, start: start, end: end, wg: &wg}
 	}
 
 	wg.Wait()

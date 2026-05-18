@@ -15,7 +15,7 @@ I built this to practice Go and to deepen my understanding of neural networks. I
 - **`data` package** with a generic `Dataset[T]` interface, an in-memory `SliceDataset[T]`, a shuffling `DataLoader[T]` that yields batches via Go 1.23 range-over-func iterators, and a `Collate` helper for stacking samples into batched ndarrays.
 - **Fused SoftmaxCrossEntropy**: softmax and cross-entropy are combined into a single operation: the forward subtracts each row's max before `exp` prevent overflow, and the backward uses the closed-form `(softmax − one_hot) / batch` gradient instead of composing through `softmax`, `log`, and `sum` separately.
 - **Verified autograd.** Every backward closure is gradient-checked against central differences in tests, the same technique PyTorch and JAX use to certify their primitives.
-- **Multi-core throughput.** Matmul, elementwise ops, and reductions partition work across `GOMAXPROCS` workers; small inputs stay serial to skip the spawn cost.
+- **~2× faster training** via a persistent goroutine worker pool that runs matmul, elementwise ops, and reductions in parallel across `GOMAXPROCS` cores; small inputs fall back to a serial loop.
 - **Fully documented and tested.** Every public type, function, and method has a doc comment explaining edge cases and preconditions, and the project contains 325 unit tests across 6 packages.
 
 ## MNIST
