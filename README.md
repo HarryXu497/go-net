@@ -9,8 +9,8 @@ I built this to practice Go and to deepen my understanding of neural networks. I
 - **No external dependencies.** Everything written with the Go standard library.
 - **Three-layer abstraction**, modeled on PyTorch:
   - `ndarray`: strided, row-major float64 buffers with broadcasting, reductions, and matmul. `Transpose`, `Reshape`, `Slice`, and `BroadcastTo` return zero-copy views that share their parent's backing buffer through different `(shape, strides, offset)` triples, the same representation PyTorch and NumPy use.
-  - `tensor` : computational graph nodes wrapping ndarrays; each op records a `backward` closure, and `Backward()` walks a topologically-sorted graph in reverse to accumulate gradients into leaves.
-  - `nn`: composable `Module`s — `Linear`, `ReLU`, `Tanh`, `Sigmoid`, `Sequential`, `CrossEntropyLoss` plus weight initialization strategies (`He`, `Glorot`, `Zeros`).
+  - `tensor` : computational graph nodes wrapping `ndarray`s; each op records a `backward` closure, and `Backward()` walks a topologically-sorted graph in reverse to accumulate gradients into leaves.
+  - `nn`: composable `Module`s (`Linear`, `ReLU`, `Tanh`, `Sigmoid`, `Sequential`, `CrossEntropyLoss`) and weight initialization strategies (`He`, `Glorot`, `Zeros`).
   - `nn/optim`: PyTorch-style optimizer subpackage with `SGD` and `Adam` (bias correction, paper defaults), and LR schedules (`ConstantLR`, `ExpDecayLR`, `StepDecayLR`).
 - **`data` package** with a generic `Dataset[T]` interface, an in-memory `SliceDataset[T]`, a shuffling `DataLoader[T]` that yields batches, and a `Collate` helper for stacking samples into batched ndarrays.
 - **Fused SoftmaxCrossEntropy**: softmax and cross-entropy are combined into a single operation: the forward subtracts each row's max before `exp` prevent overflow, and the backward uses the closed-form `(softmax − one_hot) / batch` gradient instead of composing through `softmax`, `log`, and `sum` separately.
