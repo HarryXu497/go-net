@@ -73,8 +73,7 @@ func main() {
 
 // evaluate runs one forward pass over (x, y) and returns the accuracy
 // as the fraction of rows whose argmax over the logits matches the
-// label. No autograd: x is wrapped with tensor.NewTensor, not NewLeaf,
-// so the eval graph never enters a backward chain.
+// label.
 func evaluate(model nn.Module, x *ndarray.NDArray, y []int) float64 {
 	logits := model.Forward(tensor.NewTensor(x))
 	out := logits.Data()
